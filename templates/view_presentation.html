@@ -134,6 +134,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 function copyLink() {
     const urlInput = document.getElementById('presentationUrl');
@@ -170,8 +171,12 @@ function updateFeedbacks() {
                                 ${feedback.is_processed ? 
                                     `<h5>KI-Antwort:</h5>
                                     <div class="bg-light p-3 rounded markdown-content">
-                                        ${feedback.ai_response}
-                                    </div>` : 
+                                        <div id="markdown-${feedback.id}"></div>
+                                    </div>
+                                    <script>
+                                        document.getElementById('markdown-${feedback.id}').innerHTML = 
+                                            marked.parse(${JSON.stringify(feedback.ai_response)});
+                                    </script>` : 
                                     `<div class="alert alert-warning">
                                         Wird verarbeitet...
                                     </div>`
