@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if ("Notification" in window && Notification.permission !== "denied") {
         Notification.requestPermission();
     }
+    
+    // Regelmäßige Aktualisierung starten
+    setInterval(checkProcessingStatus, {{ config.CLIENT_REFRESH_INTERVAL * 1000 }});
 });
 
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
@@ -153,10 +156,10 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
                 // Sofort prüfen
                 checkProcessingStatus();
                 
-                // Neuen Timer starten, der alle 3 Sekunden den Inhalt aktualisiert
-                contentUpdateTimer = setInterval(checkProcessingStatus, 3000);
+                // Neuen Timer starten, der alle {{ config.CLIENT_REFRESH_INTERVAL }} Sekunden den Inhalt aktualisiert
+                contentUpdateTimer = setInterval(checkProcessingStatus, {{ config.CLIENT_REFRESH_INTERVAL * 1000 }});
                 
-                // Nach 60 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
+                // Nach 120 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
                 setTimeout(() => {
                     if (contentUpdateTimer) {
                         clearInterval(contentUpdateTimer);
@@ -164,7 +167,7 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
                         // Verarbeitungsindikator ausblenden, falls noch sichtbar
                         document.getElementById('processingIndicator').classList.add('d-none');
                     }
-                }, 60000);
+                }, 120000);
             }
         }
     })

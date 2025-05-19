@@ -25,6 +25,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Konfiguration für die Feedback-Verarbeitung
 app.config['FEEDBACK_PROCESSING_INTERVAL'] = 30  # Sekunden zwischen den Verarbeitungen
 app.config['FEEDBACK_BATCH_WINDOW'] = 30  # Sekunden, in denen Feedback gesammelt wird
+app.config['CLIENT_REFRESH_INTERVAL'] = 20  # Sekunden zwischen Client-Aktualisierungen
 
 # Markdown-Filter für Templates
 @app.template_filter('markdown')
@@ -313,7 +314,8 @@ def public_view(access_code):
     
     return render_template('public_view.html', presentation=presentation, 
                           ai_content=ai_content, ai_content_html=ai_content_html,
-                          processing_status=processing_status)
+                          processing_status=processing_status,
+                          config=app.config)
 
 # Globales Wörterbuch für die Feedback-Verarbeitung
 feedback_processing_queue = {}
