@@ -49,13 +49,17 @@ set FLASK_APP=app.py
 set FLASK_ENV=development
 set SECRET_KEY=dein-geheimer-schlüssel
 set OPENAI_API_KEY=dein-openai-api-schlüssel
+set REGISTRATION_PASSWORD=dein-registrierungspasswort
 
 # macOS/Linux
 export FLASK_APP=app.py
 export FLASK_ENV=development
 export SECRET_KEY=dein-geheimer-schlüssel
 export OPENAI_API_KEY=dein-openai-api-schlüssel
+export REGISTRATION_PASSWORD=dein-registrierungspasswort
 ```
+
+Hinweis: Wenn kein `REGISTRATION_PASSWORD` gesetzt wird, generiert die Anwendung beim Start automatisch ein zufälliges Passwort und gibt es in der Konsole aus.
 
 6. Anwendung starten:
 ```bash
