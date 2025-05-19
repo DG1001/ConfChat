@@ -1,6 +1,7 @@
 # app.py
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from markupsafe import Markup
+import markdown as md
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -18,6 +19,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///presentations.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Markdown-Filter für Templates
+@app.template_filter('markdown')
+def markdown_filter(text):
+    return Markup(md.markdown(text))
 
 # OpenAI API Key - in production, use environment variables
 app.config['OPENAI_API_KEY'] = os.environ.get('OPENAI_API_KEY', 'your-api-key')
