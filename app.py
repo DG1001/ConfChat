@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Markup
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +11,7 @@ import uuid
 import requests
 import json
 from datetime import datetime
+import markdown
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
@@ -61,20 +62,32 @@ class Feedback(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# Markdown zu HTML konvertieren
+def markdown_to_html(text):
+    """Konvertiert Markdown-Text zu HTML"""
+    return Markup(markdown.markdown(text))
+
 # KI-Integration
-def generate_ai_content(context, content, feedback=None):
-    """Generiert KI-basierte Inhalte basierend auf dem Kontext, Inhalt und optional Feedback"""
+def generate_ai_content(context, content, feedbacks=None):
+    """Generiert KI-basierte Inhalte basierend auf dem Kontext, Inhalt und allen Feedbacks"""
     
     # Prompt für die KI erstellen
     prompt = f"""
-    Erstelle aus dem Kontext, dem Hauptinhalt und dem Feedback der Zuhörer eine Infoseite. Wichtig hierbei, die Anmerkungen der Zuhörer zu verarbeiten und einzubringen.
-    Kontext der Präsentation: {context}
+    Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
     
-    Hauptinhalt: {content}
+    # Kontext der Präsentation
+    {context}
+    
+    # Hauptinhalt der Präsentation
+    {content}
     """
     
-    if feedback:
-        prompt += f"\n\nZusätzliche Informationen vom Zuhörer: {feedback}"
+    if feedbacks:
+        prompt += "\n\n# Feedback und Fragen der Zuhörer\n"
+        for feedback in feedbacks:
+            prompt += f"- {feedback.content}\n"
+        
+        prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
     
     # OpenAI-API-Anfrage
     try:
@@ -87,7 +100,7 @@ def generate_ai_content(context, content, feedback=None):
             json={
                 "model": "gpt-4.1-nano",
                 "messages": [
-                    {"role": "system", "content": "Du bist ein hilfreicher Assistent, der Präsentationsinhalte interaktiv und informativ darstellt."},
+                    {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Verwende Markdown-Formatierung für eine klare Struktur mit Überschriften, Listen, Hervorhebungen und anderen Elementen."},
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": 1500
@@ -97,7 +110,7 @@ def generate_ai_content(context, content, feedback=None):
         return response_data['choices'][0]['message']['content']
     except Exception as e:
         print(f"Fehler bei der KI-Anfrage: {e}")
-        return "Es ist ein Fehler bei der Generierung des KI-Inhalts aufgetreten."
+        return "## Fehler\nEs ist ein Fehler bei der Generierung des KI-Inhalts aufgetreten."
 
 # Routen
 @app.route('/')
@@ -254,10 +267,17 @@ def delete_presentation(id):
 def public_view(access_code):
     presentation = Presentation.query.filter_by(access_code=access_code).first_or_404()
     
-    # KI-Inhalte generieren
-    ai_content = generate_ai_content(presentation.context, presentation.content)
+    # Alle Feedbacks für diese Präsentation abrufen
+    feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
     
-    return render_template('public_view.html', presentation=presentation, ai_content=ai_content)
+    # KI-Inhalte generieren mit allen Feedbacks
+    ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks)
+    
+    # Markdown zu HTML konvertieren
+    ai_content_html = markdown_to_html(ai_content)
+    
+    return render_template('public_view.html', presentation=presentation, 
+                          ai_content=ai_content, ai_content_html=ai_content_html)
 
 @app.route('/p/<access_code>/feedback', methods=['POST'])
 def submit_feedback(access_code):
@@ -273,17 +293,24 @@ def submit_feedback(access_code):
     db.session.add(feedback)
     db.session.commit()
     
-    # KI-Antwort generieren
-    ai_response = generate_ai_content(presentation.context, presentation.content, feedback_content)
+    # Alle Feedbacks für diese Präsentation abrufen
+    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
+    
+    # KI-Antwort mit allen Feedbacks generieren
+    ai_response = generate_ai_content(presentation.context, presentation.content, all_feedbacks)
     
     # Feedback aktualisieren
     feedback.ai_response = ai_response
     feedback.is_processed = True
     db.session.commit()
     
+    # Markdown zu HTML konvertieren
+    ai_response_html = markdown_to_html(ai_response)
+    
     return jsonify({
         'success': True,
-        'ai_response': ai_response
+        'ai_response': ai_response,
+        'ai_response_html': str(ai_response_html)
     })
 
 @app.route('/api/feedbacks/<int:presentation_id>', methods=['GET'])
