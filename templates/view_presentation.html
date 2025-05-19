@@ -86,16 +86,9 @@
                                         <h5>Frage/Zusatzinfo:</h5>
                                         <p>{{ feedback.content }}</p>
                                         
-                                        {% if feedback.is_processed %}
-                                            <h5>KI-Antwort:</h5>
-                                            <div class="bg-light p-3 rounded markdown-content">
-                                                {{ feedback.ai_response|markdown|safe }}
-                                            </div>
-                                        {% else %}
-                                            <div class="alert alert-warning">
-                                                Wird verarbeitet...
-                                            </div>
-                                        {% endif %}
+                                        <div class="alert alert-info">
+                                            Feedback wurde verarbeitet und in den KI-Inhalt integriert.
+                                        </div>
                                     </div>
                                 </div>
                             {% endfor %}
@@ -169,9 +162,8 @@ function updateFeedbacks() {
                                 <p>${feedback.content}</p>
                                 
                                 ${feedback.is_processed ? 
-                                    `<h5>KI-Antwort:</h5>
-                                    <div class="bg-light p-3 rounded markdown-content">
-                                        <div id="markdown-${feedback.id}"></div>
+                                    `<div class="alert alert-info">
+                                        Feedback wurde verarbeitet und in den KI-Inhalt integriert.
                                     </div>` : 
                                     `<div class="alert alert-warning">
                                         Wird verarbeitet...
@@ -184,15 +176,7 @@ function updateFeedbacks() {
                 
                 container.innerHTML = feedbackHTML;
                 
-                // Markdown für alle verarbeiteten Feedbacks rendern
-                feedbacks.forEach(feedback => {
-                    if (feedback.is_processed) {
-                        const element = document.getElementById(`markdown-${feedback.id}`);
-                        if (element) {
-                            element.innerHTML = marked.parse(feedback.ai_response);
-                        }
-                    }
-                });
+                // Keine Markdown-Rendering für einzelne Feedbacks mehr nötig
             } else {
                 document.getElementById('feedbackContainer').innerHTML = `
                     <div class="alert alert-info">
