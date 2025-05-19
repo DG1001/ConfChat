@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">{{ presentation.title }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <p class="lead">{{ presentation.description }}</p>
+                    </div>
+                    
+                    <div class="ai-content mb-4">
+                        <h3>KI-generierte Informationen:</h3>
+                        <div class="ai-container p-3 bg-light rounded">
+                            {{ ai_content|safe }}
+                        </div>
+                    </div>
+                    
+                    <div class="feedback-section">
+                        <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
+                        <form id="feedbackForm" class="mb-3">
+                            <div class="form-group">
+                                <textarea class="form-control" id="feedbackContent" rows="3" 
+                                    placeholder="Geben Sie hier Ihre Frage oder zusätzliche Informationen ein..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-2">Absenden</button>
+                        </form>
+                    </div>
+                    
+                    <div id="responseSection" class="d-none">
+                        <h3>KI-Antwort:</h3>
+                        <div id="aiResponse" class="p-3 bg-light rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const feedbackContent = document.getElementById('feedbackContent').value;
+    if (!feedbackContent.trim()) return;
+    
+    // Feedback-Button deaktivieren und Ladeindikator anzeigen
+    const submitButton = this.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verarbeite...';
+    
+    // Feedback senden
+    fetch('/p/{{ presentation.access_code }}/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'feedback=' + encodeURIComponent(feedbackContent)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Antwort anzeigen
+            document.getElementById('responseSection').classList.remove('d-none');
+            document.getElementById('aiResponse').innerHTML = data.ai_response;
+            
+            // Formular zurücksetzen
+            document.getElementById('feedbackContent').value = '';
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.');
+    })
+    .finally(() => {
+        // Feedback-Button wieder aktivieren
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+    });
+});
+</script>
+{% endblock %}

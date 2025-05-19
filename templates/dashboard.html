@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Dashboard</h2>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3>Meine Präsentationen</h3>
+                        <a href="{{ url_for('new_presentation') }}" class="btn btn-success">Neue Präsentation</a>
+                    </div>
+                    
+                    {% if presentations %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Titel</th>
+                                        <th>Zugangscode</th>
+                                        <th>Erstellt am</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for presentation in presentations %}
+                                        <tr>
+                                            <td>{{ presentation.title }}</td>
+                                            <td>{{ presentation.access_code }}</td>
+                                            <td>{{ presentation.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{{ url_for('view_presentation', id=presentation.id) }}" class="btn btn-sm btn-info">Ansehen</a>
+                                                    <a href="{{ url_for('edit_presentation', id=presentation.id) }}" class="btn btn-sm btn-warning">Bearbeiten</a>
+                                                    <a href="{{ url_for('public_view', access_code=presentation.access_code) }}" target="_blank" class="btn btn-sm btn-primary">Öffentliche Ansicht</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            Sie haben noch keine Präsentationen erstellt. Klicken Sie auf "Neue Präsentation", um zu beginnen.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

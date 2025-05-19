@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Präsentation bearbeiten</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        <div class="form-group">
+                            <label for="title">Titel</label>
+                            <input type="text" class="form-control" id="title" name="title" value="{{ presentation.title }}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="2">{{ presentation.description }}</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="context">Kontext der Präsentation</label>
+                            <textarea class="form-control" id="context" name="context" rows="4">{{ presentation.context }}</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="content">Inhalt</label>
+                            <textarea class="form-control" id="content" name="content" rows="10">{{ presentation.content }}</textarea>
+                        </div>
+                        
+                        <div class="form-group form-check">
+                            <input type="checkbox" class="form-check-input" id="previewCheck">
+                            <label class="form-check-label" for="previewCheck">KI-Vorschau aktualisieren</label>
+                        </div>
+                        
+                        <div id="aiPreview" class="d-none mt-3 mb-3">
+                            <h4>KI-Vorschau</h4>
+                            <div class="p-3 bg-light rounded">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="sr-only">Generiere...</span>
+                                </div>
+                                <span class="ml-2">KI-Inhalt wird generiert...</span>
+                            </div>
+                            <div id="previewContent" class="p-3 bg-light rounded mt-2 d-none"></div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('view_presentation', id=presentation.id) }}" class="btn btn-secondary">Zurück</a>
+                            <button type="submit" class="btn btn-success">Aktualisieren</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('previewCheck').addEventListener('change', function() {
+    const aiPreview = document.getElementById('aiPreview');
+    const previewContent = document.getElementById('previewContent');
+    
+    if (this.checked) {
+        aiPreview.classList.remove('d-none');
+        
+        // Kontext und Inhalt abrufen
+        const context = document.getElementById('context').value;
+        const content = document.getElementById('content').value;
+        
+        if (context.trim() === '' || content.trim() === '') {
+            previewContent.innerHTML = 'Bitte füllen Sie sowohl den Kontext als auch den Inhalt aus, um eine KI-Vorschau zu generieren.';
+            previewContent.classList.remove('d-none');
+            return;
+        }
+        
+        // Hier würde der tatsächliche API-Aufruf erfolgen
+        // In dieser Demo zeigen wir nach einer kurzen Verzögerung einen Beispielinhalt an
+        setTimeout(() => {
+            previewContent.innerHTML = 'Dies ist eine aktualisierte Vorschau für den KI-generierten Inhalt basierend auf Ihrem geänderten Kontext und Inhalt.';
+            previewContent.classList.remove('d-none');
+        }, 1500);
+    } else {
+        aiPreview.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

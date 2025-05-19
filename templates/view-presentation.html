@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">{{ presentation.title }}</h2>
+                </div>
+                <div class="card-body">
+                    <p><strong>Beschreibung:</strong> {{ presentation.description }}</p>
+                    <p><strong>Zugangscode:</strong> {{ presentation.access_code }}</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h4>QR-Code für Zuhörer</h4>
+                            <img src="data:image/png;base64,{{ qr_code }}" alt="QR-Code" class="img-fluid">
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Präsentations-Link</h4>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="presentationUrl" value="{{ presentation_url }}" readonly>
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="copyLink()">Kopieren</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <h4>Präsentationsinhalte</h4>
+                            <div class="card">
+                                <div class="card-header">
+                                    <ul class="nav nav-tabs card-header-tabs" id="presentationTabs" role="tablist">
+                                        <li class="nav-item">
+                                            <a class="nav-link active" id="context-tab" data-toggle="tab" href="#context" role="tab">Kontext</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" id="content-tab" data-toggle="tab" href="#content" role="tab">Inhalt</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="card-body">
+                                    <div class="tab-content" id="presentationTabContent">
+                                        <div class="tab-pane fade show active" id="context" role="tabpanel">
+                                            <pre>{{ presentation.context }}</pre>
+                                        </div>
+                                        <div class="tab-pane fade" id="content" role="tabpanel">
+                                            <pre>{{ presentation.content }}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Zurück</a>
+                        <div>
+                            <a href="{{ url_for('edit_presentation', id=presentation.id) }}" class="btn btn-warning">Bearbeiten</a>
+                            <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#deleteModal">Löschen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Feedback-Bereich -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">Zuhörer-Feedback</h3>
+                </div>
+                <div class="card-body">
+                    <div id="feedbackContainer">
+                        {% if feedbacks %}
+                            {% for feedback in feedbacks %}
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Feedback #{{ feedback.id }}</span>
+                                            <span>{{ feedback.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <h5>Frage/Zusatzinfo:</h5>
+                                        <p>{{ feedback.content }}</p>
+                                        
+                                        {% if feedback.is_processed %}
+                                            <h5>KI-Antwort:</h5>
+                                            <div class="bg-light p-3 rounded">
+                                                {{ feedback.ai_response|safe }}
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-warning">
+                                                Wird verarbeitet...
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                Noch keine Feedbacks vorhanden.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Löschen-Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Präsentation löschen</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Sind Sie sicher, dass Sie diese Präsentation löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Abbrechen</button>
+                <form action="{{ url_for('delete_presentation', id=presentation.id) }}" method="post">
+                    <button type="submit" class="btn btn-danger">Löschen</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink() {
+    const urlInput = document.getElementById('presentationUrl');
+    urlInput.select();
+    document.execCommand('copy');
+    alert('Link kopiert!');
+}
+
+// Feedbacks regelmäßig aktualisieren
+function updateFeedbacks() {
+    fetch('/api/feedbacks/{{ presentation.id }}')
+        .then(response => response.json())
+        .then(feedbacks => {
+            if (feedbacks.length > 0) {
+                const container = document.getElementById('feedbackContainer');
+                let feedbackHTML = '';
+                
+                feedbacks.forEach(feedback => {
+                    const date = new Date(feedback.created_at);
+                    const formattedDate = date.toLocaleDateString('de-DE') + ' ' + date.toLocaleTimeString('de-DE');
+                    
+                    feedbackHTML += `
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between">
+                                    <span>Feedback #${feedback.id}</span>
+                                    <span>${formattedDate}</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h5>Frage/Zusatzinfo:</h5>
+                                <p>${feedback.content}</p>
+                                
+                                ${feedback.is_processed ? 
+                                    `<h5>KI-Antwort:</h5>
+                                    <div class="bg-light p-3 rounded">
+                                        ${feedback.ai_response}
+                                    </div>` : 
+                                    `<div class="alert alert-warning">
+                                        Wird verarbeitet...
+                                    </div>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = feedbackHTML;
+            } else {
+                document.getElementById('feedbackContainer').innerHTML = `
+                    <div class="alert alert-info">
+                        Noch keine Feedbacks vorhanden.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => console.error('Fehler beim Aktualisieren der Feedbacks:', error));
+}
+
+// Alle 10 Sekunden aktualisieren
+setInterval(updateFeedbacks, 10000);
+</script>
+{% endblock %}

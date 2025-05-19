@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2 text-center">
+            <h1 class="display-4 mb-4">Willkommen bei PresentAI</h1>
+            <p class="lead">Erstellen Sie interaktive Präsentationen mit KI-generiertem Inhalt und Echtzeit-Feedback von Ihren Zuhörern.</p>
+            
+            <div class="mt-5">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">Für Präsentatoren</h5>
+                                <p class="card-text">Erstellen Sie Präsentationen, teilen Sie diese mit Ihrem Publikum und erhalten Sie Echtzeit-Feedback.</p>
+                                {% if current_user.is_authenticated %}
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Zum Dashboard</a>
+                                {% else %}
+                                    <a href="{{ url_for('login') }}" class="btn btn-primary">Anmelden</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">Für Zuhörer</h5>
+                                <p class="card-text">Geben Sie den Zugangscode ein, um auf eine Präsentation zuzugreifen und interaktiv teilzunehmen.</p>
+                                <form class="mt-3" action="{{ url_for('public_view', access_code='code') }}" method="get" onsubmit="redirectToPresentation(event)">
+                                    <div class="input-group">
+                                        <input type="text" id="accessCode" class="form-control" placeholder="Zugangscode eingeben" required>
+                                        <div class="input-group-append">
+                                            <button class="btn btn-success" type="submit">Teilnehmen</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-5">
+                <h2>Funktionen</h2>
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">KI-generierte Inhalte</h5>
+                                <p class="card-text">Lassen Sie die KI basierend auf Ihren Präsentationsinhalten informative Zusatzmaterialien für Ihr Publikum erstellen.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Echtzeit-Interaktion</h5>
+                                <p class="card-text">Ermöglichen Sie Ihrem Publikum, Fragen zu stellen und zusätzliche Informationen anzufordern, die sofort verarbeitet werden.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Einfacher Zugang</h5>
+                                <p class="card-text">Teilen Sie Ihre Präsentationen mit einem einfachen Link oder QR-Code, ohne dass sich die Teilnehmer registrieren müssen.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function redirectToPresentation(event) {
+    event.preventDefault();
+    const accessCode = document.getElementById('accessCode').value.trim();
+    if (accessCode) {
+        window.location.href = "/p/" + accessCode;
+    }
+}
+</script>
+{% endblock %}
