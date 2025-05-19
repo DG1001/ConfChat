@@ -75,12 +75,32 @@ document.getElementById('previewCheck').addEventListener('change', function() {
             return;
         }
         
-        // Hier würde der tatsächliche API-Aufruf erfolgen
-        // In dieser Demo zeigen wir nach einer kurzen Verzögerung einen Beispielinhalt an
-        setTimeout(() => {
-            previewContent.innerHTML = 'Dies ist eine aktualisierte Vorschau für den KI-generierten Inhalt basierend auf Ihrem geänderten Kontext und Inhalt.';
+        // API-Aufruf an den Server, um KI-Vorschau zu generieren
+        fetch('/api/generate_preview', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                context: context,
+                content: content
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                previewContent.innerHTML = data.preview_html;
+                previewContent.classList.remove('d-none');
+            } else {
+                previewContent.innerHTML = 'Fehler bei der Generierung der Vorschau: ' + data.error;
+                previewContent.classList.remove('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+            previewContent.innerHTML = 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.';
             previewContent.classList.remove('d-none');
-        }, 1500);
+        });
     } else {
         aiPreview.classList.add('d-none');
     }

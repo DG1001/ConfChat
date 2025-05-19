@@ -330,6 +330,36 @@ def api_get_feedbacks(presentation_id):
     
     return jsonify(result)
 
+@app.route('/api/generate_preview', methods=['POST'])
+def api_generate_preview():
+    data = request.json
+    context = data.get('context', '')
+    content = data.get('content', '')
+    
+    if not context or not content:
+        return jsonify({
+            'success': False,
+            'error': 'Kontext und Inhalt sind erforderlich'
+        })
+    
+    try:
+        # KI-Inhalte generieren ohne Feedbacks
+        ai_content = generate_ai_content(context, content)
+        
+        # Markdown zu HTML konvertieren
+        ai_content_html = markdown_to_html(ai_content)
+        
+        return jsonify({
+            'success': True,
+            'preview': ai_content,
+            'preview_html': str(ai_content_html)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
