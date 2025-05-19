@@ -234,5 +234,31 @@ setInterval(updateFeedbacks, 10000);
     margin-left: 0;
     color: #6c757d;
 }
+
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+.markdown-content table, 
+.markdown-content th, 
+.markdown-content td {
+    border: 1px solid #dee2e6;
+}
+
+.markdown-content th, 
+.markdown-content td {
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.markdown-content th {
+    background-color: #f8f9fa;
+}
+
+.markdown-content tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
 </style>
 {% endblock %}

@@ -82,7 +82,7 @@ def load_user(user_id):
 # Markdown zu HTML konvertieren
 def markdown_to_html(text):
     """Konvertiert Markdown-Text zu HTML"""
-    return Markup(markdown.markdown(text))
+    return Markup(markdown.markdown(text, extensions=['tables']))
 
 # KI-Integration
 def generate_ai_content(context, content, feedbacks=None):
