@@ -67,6 +67,7 @@ def generate_ai_content(context, content, feedback=None):
     
     # Prompt für die KI erstellen
     prompt = f"""
+    Erstelle aus dem Kontext, dem Hauptinhalt und dem Feedback der Zuhörer eine Infoseite. Wichtig hierbei, die Anmerkungen der Zuhörer zu verarbeiten und einzubringen.
     Kontext der Präsentation: {context}
     
     Hauptinhalt: {content}
@@ -84,7 +85,7 @@ def generate_ai_content(context, content, feedback=None):
                 "Authorization": f"Bearer {app.config['OPENAI_API_KEY']}"
             },
             json={
-                "model": "gpt-4",
+                "model": "gpt-4.1-nano",
                 "messages": [
                     {"role": "system", "content": "Du bist ein hilfreicher Assistent, der Präsentationsinhalte interaktiv und informativ darstellt."},
                     {"role": "user", "content": prompt}
