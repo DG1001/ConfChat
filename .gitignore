@@ -1,2 +1,4 @@
 .aider*
 venv/
+instance/
+__pycache__/
