@@ -10,11 +10,22 @@
     
     <!-- Custom CSS -->
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        
         body {
             background-image: url('/static/back.png');
             background-size: cover;
             background-attachment: fixed;
             background-position: center;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        main {
+            flex: 1 0 auto;
         }
         
         .navbar-brand {
@@ -22,7 +33,7 @@
         }
         
         .footer {
-            margin-top: 3rem;
+            flex-shrink: 0;
             padding: 1.5rem 0;
             background-color: rgba(248, 249, 250, 0.9);
             border-top: 1px solid #ddd;
