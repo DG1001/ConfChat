@@ -1,4 +1,4 @@
-# Anforderungen und Installationsanleitung
+# ConfChat - Interaktive KI-gestützte Präsentationsplattform
 
 ## Systemanforderungen
 - Python 3.8 oder höher
@@ -9,6 +9,8 @@
 - qrcode
 - Pillow (für QR-Code-Generierung)
 - requests (für API-Kommunikation)
+- markdown (für Markdown-Rendering)
+- markupsafe (für sicheres HTML-Rendering)
 
 ## Installation
 
@@ -25,7 +27,7 @@ python -m venv venv
 
 4. Abhängigkeiten installieren:
 ```bash
-pip install Flask Flask-SQLAlchemy Flask-Login Werkzeug qrcode Pillow requests
+pip install -r requirements.txt
 ```
 
 5. Umgebungsvariablen setzen:
@@ -43,28 +45,19 @@ export SECRET_KEY=dein-geheimer-schlüssel
 export OPENAI_API_KEY=dein-openai-api-schlüssel
 ```
 
-6. Datenbank initialisieren (bei erstem Start):
+6. Anwendung starten:
 ```bash
-flask shell
-```
-```python
-from app import db
-db.create_all()
-exit()
+python app.py
 ```
 
-7. Anwendung starten:
-```bash
-flask run
-```
-
-8. Im Browser öffnen: http://127.0.0.1:5000/
+7. Im Browser öffnen: http://127.0.0.1:5000/
 
 ## Projektstruktur
 
 ```
 /
 ├── app.py                 # Hauptanwendung
+├── requirements.txt       # Abhängigkeiten
 ├── templates/             # HTML-Templates
 │   ├── base.html          # Basis-Template
 │   ├── index.html         # Startseite
@@ -91,7 +84,32 @@ flask run
 1. Zugriff auf die öffentliche Ansicht über den geteilten Link oder QR-Code
 2. Anzeige der KI-generierten Informationen basierend auf der Präsentation
 3. Möglichkeit, Fragen oder zusätzliche Informationen einzugeben
-4. Erhalten von KI-generierten Antworten in Echtzeit
+4. Automatische Aktualisierung der Seite, wenn neue Inhalte verfügbar sind
+
+## Leistungsmerkmale
+
+### KI-Integration
+- Automatische Generierung von Präsentationsinhalten basierend auf Kontext und Inhalt
+- Intelligente Verarbeitung von Zuhörer-Feedback
+- Markdown-Unterstützung für formatierte Inhalte (Überschriften, Listen, Tabellen, etc.)
+
+### Optimierte Leistung
+- Batch-Verarbeitung von Feedback-Anfragen zur Reduzierung der API-Aufrufe
+- Caching von KI-generierten Inhalten zur Verbesserung der Ladezeiten
+- Konfigurierbare Client-Aktualisierungsintervalle
+
+### Benutzerfreundlichkeit
+- Automatische Benachrichtigungen bei Inhaltsänderungen
+- Echtzeit-Aktualisierung der Inhalte ohne manuelles Neuladen
+- Responsive Design für verschiedene Geräte
+
+## Konfiguration
+
+Die Anwendung bietet verschiedene Konfigurationsoptionen in app.py:
+
+- `FEEDBACK_PROCESSING_INTERVAL`: Zeit in Sekunden zwischen Feedback-Verarbeitungen (Standard: 30)
+- `FEEDBACK_BATCH_WINDOW`: Zeitfenster in Sekunden, in dem Feedback gesammelt wird (Standard: 30)
+- `CLIENT_REFRESH_INTERVAL`: Zeit in Sekunden zwischen Client-Aktualisierungen (Standard: 20)
 
 ## KI-Integration
 
@@ -114,4 +132,4 @@ Die Anwendung nutzt OpenAI's GPT-4 für die KI-Funktionalität. Wenn Sie keinen 
 - Fügen Sie weitere KI-Funktionen hinzu, z.B. Zusammenfassungen oder Übersetzungen
 - Implementieren Sie Datei-Uploads für Präsentationen
 - Erstellen Sie eine Echtzeit-Chat-Funktion mit WebSockets
-- Fügen Sie Benutzerverwaltung und Berechtigungen hinzu
+- Fügen Sie erweiterte Benutzerverwaltung und Berechtigungen hinzu
