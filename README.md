@@ -2,6 +2,16 @@
 
 ![logo](screen.png)
 
+PresentAI ist eine moderne Webanwendung, die es Präsentatoren ermöglicht, interaktive Präsentationen mit KI-Unterstützung zu erstellen. Die Plattform generiert automatisch informative Inhalte basierend auf dem Kontext und den Hauptinhalten der Präsentation. Zuhörer können über einen einfachen Link oder QR-Code auf die Präsentation zugreifen und in Echtzeit Fragen stellen oder zusätzliche Informationen anfordern, die von der KI verarbeitet und in die Präsentation integriert werden.
+
+## Hauptfunktionen
+
+- **KI-generierte Inhalte**: Automatische Erstellung von informativen Inhalten basierend auf Ihren Eingaben
+- **Echtzeit-Feedback**: Zuhörer können Fragen stellen und zusätzliche Informationen anfordern
+- **Batch-Verarbeitung**: Effiziente Verarbeitung von Feedback-Anfragen zur Reduzierung der API-Aufrufe
+- **Markdown-Unterstützung**: Formatierte Darstellung von Inhalten mit Überschriften, Listen, Tabellen etc.
+- **Automatische Aktualisierung**: Inhalte werden automatisch aktualisiert, wenn neue Informationen verfügbar sind
+
 ## Systemanforderungen
 - Python 3.8 oder höher
 - Flask 2.0 oder höher
