@@ -42,6 +42,31 @@
 </div>
 
 <script>
+// Globale Variable für den Aktualisierungstimer
+let contentUpdateTimer = null;
+
+// Funktion zum Prüfen des Verarbeitungsstatus
+function checkProcessingStatus() {
+    fetch('/p/{{ presentation.access_code }}')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newContent = doc.querySelector('.ai-container').innerHTML;
+            
+            // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
+            document.querySelector('.ai-container').innerHTML = newContent;
+            
+            // Aktualisiere auch die Antwort, falls sie angezeigt wird
+            if (!document.getElementById('responseSection').classList.contains('d-none')) {
+                document.getElementById('aiResponse').innerHTML = newContent;
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Aktualisieren des Inhalts:', error);
+        });
+}
+
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -69,11 +94,30 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
             document.getElementById('responseSection').classList.remove('d-none');
             document.getElementById('aiResponse').innerHTML = data.ai_response_html;
             
-            // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
-            document.querySelector('.ai-container').innerHTML = data.ai_response_html;
-            
             // Formular zurücksetzen
             document.getElementById('feedbackContent').value = '';
+            
+            // Wenn die Verarbeitung im Hintergrund läuft, Timer für regelmäßige Aktualisierungen starten
+            if (data.processing) {
+                // Bestehenden Timer löschen, falls vorhanden
+                if (contentUpdateTimer) {
+                    clearInterval(contentUpdateTimer);
+                }
+                
+                // Neuen Timer starten, der alle 5 Sekunden den Inhalt aktualisiert
+                contentUpdateTimer = setInterval(checkProcessingStatus, 5000);
+                
+                // Nach 40 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
+                setTimeout(() => {
+                    if (contentUpdateTimer) {
+                        clearInterval(contentUpdateTimer);
+                        contentUpdateTimer = null;
+                    }
+                }, 40000);
+            } else {
+                // Wenn keine Hintergrundverarbeitung, sofort aktualisieren
+                document.querySelector('.ai-container').innerHTML = data.ai_response_html;
+            }
         }
     })
     .catch(error => {

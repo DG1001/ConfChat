@@ -12,13 +12,19 @@ import os
 import uuid
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import markdown
+import threading
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///presentations.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Konfiguration für die Feedback-Verarbeitung
+app.config['FEEDBACK_PROCESSING_INTERVAL'] = 30  # Sekunden zwischen den Verarbeitungen
+app.config['FEEDBACK_BATCH_WINDOW'] = 30  # Sekunden, in denen Feedback gesammelt wird
 
 # Markdown-Filter für Templates
 @app.template_filter('markdown')
@@ -58,6 +64,8 @@ class Presentation(db.Model):
     feedbacks = db.relationship('Feedback', backref='presentation', lazy=True, cascade="all, delete-orphan")
     cached_ai_content = db.Column(db.Text)
     last_updated = db.Column(db.DateTime)
+    processing_scheduled = db.Column(db.Boolean, default=False)
+    next_processing_time = db.Column(db.DateTime)
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -297,8 +305,105 @@ def public_view(access_code):
     # Markdown zu HTML konvertieren
     ai_content_html = markdown_to_html(ai_content)
     
+    # Status der Verarbeitung
+    processing_status = {
+        'scheduled': presentation.processing_scheduled,
+        'next_update': presentation.next_processing_time.isoformat() if presentation.next_processing_time else None
+    }
+    
     return render_template('public_view.html', presentation=presentation, 
-                          ai_content=ai_content, ai_content_html=ai_content_html)
+                          ai_content=ai_content, ai_content_html=ai_content_html,
+                          processing_status=processing_status)
+
+# Globales Wörterbuch für die Feedback-Verarbeitung
+feedback_processing_queue = {}
+processing_thread = None
+processing_lock = threading.Lock()
+
+def process_feedback_queue():
+    """Hintergrundthread zur Verarbeitung von Feedback-Anfragen in Batches"""
+    global feedback_processing_queue
+    
+    while True:
+        time.sleep(1)  # Kurze Pause, um CPU-Last zu reduzieren
+        
+        now = datetime.utcnow()
+        presentations_to_process = []
+        
+        with processing_lock:
+            # Präsentationen identifizieren, die verarbeitet werden müssen
+            for presentation_id, data in list(feedback_processing_queue.items()):
+                if now >= data['next_processing_time']:
+                    presentations_to_process.append(presentation_id)
+        
+        # Verarbeitung der identifizierten Präsentationen
+        for presentation_id in presentations_to_process:
+            try:
+                with app.app_context():
+                    # Präsentation und alle zugehörigen Feedbacks abrufen
+                    presentation = Presentation.query.get(presentation_id)
+                    if not presentation:
+                        with processing_lock:
+                            if presentation_id in feedback_processing_queue:
+                                del feedback_processing_queue[presentation_id]
+                        continue
+                    
+                    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation_id).all()
+                    
+                    # KI-Antwort mit allen Feedbacks generieren
+                    ai_response = generate_ai_content(presentation.context, presentation.content, all_feedbacks)
+                    
+                    # Unverarbeitete Feedbacks aktualisieren
+                    unprocessed_feedbacks = Feedback.query.filter_by(
+                        presentation_id=presentation_id, 
+                        is_processed=False
+                    ).all()
+                    
+                    for feedback in unprocessed_feedbacks:
+                        feedback.ai_response = ai_response
+                        feedback.is_processed = True
+                    
+                    # Präsentations-Cache aktualisieren
+                    presentation.cached_ai_content = ai_response
+                    presentation.last_updated = datetime.utcnow()
+                    presentation.processing_scheduled = False
+                    presentation.next_processing_time = None
+                    
+                    db.session.commit()
+                    
+                    # Aus der Warteschlange entfernen
+                    with processing_lock:
+                        if presentation_id in feedback_processing_queue:
+                            del feedback_processing_queue[presentation_id]
+            
+            except Exception as e:
+                print(f"Fehler bei der Verarbeitung von Präsentation {presentation_id}: {e}")
+                # Bei Fehler aus der Warteschlange entfernen, um endlose Wiederholungen zu vermeiden
+                with processing_lock:
+                    if presentation_id in feedback_processing_queue:
+                        del feedback_processing_queue[presentation_id]
+
+def schedule_feedback_processing(presentation_id):
+    """Plant die Verarbeitung von Feedback für eine Präsentation"""
+    global feedback_processing_queue, processing_thread
+    
+    # Verarbeitungsthread starten, falls noch nicht gestartet
+    if processing_thread is None or not processing_thread.is_alive():
+        processing_thread = threading.Thread(target=process_feedback_queue, daemon=True)
+        processing_thread.start()
+    
+    now = datetime.utcnow()
+    processing_interval = timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
+    
+    with processing_lock:
+        # Wenn die Präsentation bereits in der Warteschlange ist, Verarbeitungszeit aktualisieren
+        if presentation_id in feedback_processing_queue:
+            feedback_processing_queue[presentation_id]['next_processing_time'] = now + processing_interval
+        else:
+            # Sonst zur Warteschlange hinzufügen
+            feedback_processing_queue[presentation_id] = {
+                'next_processing_time': now + processing_interval
+            }
 
 @app.route('/p/<access_code>/feedback', methods=['POST'])
 def submit_feedback(access_code):
@@ -312,31 +417,25 @@ def submit_feedback(access_code):
     )
     
     db.session.add(feedback)
-    db.session.commit()
     
-    # Alle Feedbacks für diese Präsentation abrufen
-    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
-    
-    # KI-Antwort mit allen Feedbacks generieren
-    ai_response = generate_ai_content(presentation.context, presentation.content, all_feedbacks)
-    
-    # Feedback aktualisieren
-    feedback.ai_response = ai_response
-    feedback.is_processed = True
-    
-    # Präsentations-Cache aktualisieren
-    presentation.cached_ai_content = ai_response
-    presentation.last_updated = datetime.utcnow()
+    # Verarbeitung planen
+    presentation.processing_scheduled = True
+    presentation.next_processing_time = datetime.utcnow() + timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
     
     db.session.commit()
     
-    # Markdown zu HTML konvertieren
-    ai_response_html = markdown_to_html(ai_response)
+    # Feedback-Verarbeitung im Hintergrund planen
+    schedule_feedback_processing(presentation.id)
+    
+    # Temporäre Antwort zurückgeben
+    temp_response = "Ihre Anfrage wurde entgegengenommen und wird verarbeitet. Die Seite wird in Kürze aktualisiert."
+    temp_response_html = f"<p>{temp_response}</p><p><em>Wird verarbeitet...</em></p>"
     
     return jsonify({
         'success': True,
-        'ai_response': ai_response,
-        'ai_response_html': str(ai_response_html)
+        'ai_response': temp_response,
+        'ai_response_html': temp_response_html,
+        'processing': True
     })
 
 @app.route('/api/feedbacks/<int:presentation_id>', methods=['GET'])
@@ -399,6 +498,14 @@ def add_columns_if_not_exist():
         if 'last_updated' not in columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN last_updated TIMESTAMP'))
+                
+        if 'processing_scheduled' not in columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN processing_scheduled BOOLEAN'))
+                
+        if 'next_processing_time' not in columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN next_processing_time TIMESTAMP'))
 
 if __name__ == '__main__':
     with app.app_context():
