@@ -172,11 +172,7 @@ function updateFeedbacks() {
                                     `<h5>KI-Antwort:</h5>
                                     <div class="bg-light p-3 rounded markdown-content">
                                         <div id="markdown-${feedback.id}"></div>
-                                    </div>
-                                    <script>
-                                        document.getElementById('markdown-${feedback.id}').innerHTML = 
-                                            marked.parse(${JSON.stringify(feedback.ai_response)});
-                                    </script>` : 
+                                    </div>` : 
                                     `<div class="alert alert-warning">
                                         Wird verarbeitet...
                                     </div>`
@@ -187,6 +183,16 @@ function updateFeedbacks() {
                 });
                 
                 container.innerHTML = feedbackHTML;
+                
+                // Markdown für alle verarbeiteten Feedbacks rendern
+                feedbacks.forEach(feedback => {
+                    if (feedback.is_processed) {
+                        const element = document.getElementById(`markdown-${feedback.id}`);
+                        if (element) {
+                            element.innerHTML = marked.parse(feedback.ai_response);
+                        }
+                    }
+                });
             } else {
                 document.getElementById('feedbackContainer').innerHTML = `
                     <div class="alert alert-info">
