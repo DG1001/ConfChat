@@ -56,6 +56,8 @@ class Presentation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     feedbacks = db.relationship('Feedback', backref='presentation', lazy=True, cascade="all, delete-orphan")
+    cached_ai_content = db.Column(db.Text)
+    last_updated = db.Column(db.DateTime)
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -251,6 +253,9 @@ def edit_presentation(id):
         presentation.context = request.form.get('context')
         presentation.content = request.form.get('content')
         
+        # Cache zurücksetzen, da sich der Inhalt geändert hat
+        presentation.cached_ai_content = None
+        
         db.session.commit()
         return redirect(url_for('view_presentation', id=id))
     
@@ -277,8 +282,17 @@ def public_view(access_code):
     # Alle Feedbacks für diese Präsentation abrufen
     feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
     
-    # KI-Inhalte generieren mit allen Feedbacks
-    ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks)
+    # Prüfen, ob wir bereits einen gecachten KI-Inhalt haben
+    if presentation.cached_ai_content:
+        ai_content = presentation.cached_ai_content
+    else:
+        # KI-Inhalte generieren mit allen Feedbacks
+        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks)
+        
+        # Cache aktualisieren
+        presentation.cached_ai_content = ai_content
+        presentation.last_updated = datetime.utcnow()
+        db.session.commit()
     
     # Markdown zu HTML konvertieren
     ai_content_html = markdown_to_html(ai_content)
@@ -309,6 +323,11 @@ def submit_feedback(access_code):
     # Feedback aktualisieren
     feedback.ai_response = ai_response
     feedback.is_processed = True
+    
+    # Präsentations-Cache aktualisieren
+    presentation.cached_ai_content = ai_response
+    presentation.last_updated = datetime.utcnow()
+    
     db.session.commit()
     
     # Markdown zu HTML konvertieren
