@@ -385,7 +385,23 @@ def api_generate_preview():
             'error': str(e)
         })
 
+# Hilfsfunktion für Datenbankmigrationen
+def add_columns_if_not_exist():
+    with app.app_context():
+        # Überprüfen, ob die Spalten bereits existieren
+        inspector = db.inspect(db.engine)
+        columns = [column['name'] for column in inspector.get_columns('presentation')]
+        
+        if 'cached_ai_content' not in columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN cached_ai_content TEXT'))
+        
+        if 'last_updated' not in columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN last_updated TIMESTAMP'))
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        add_columns_if_not_exist()
     app.run(debug=True)
