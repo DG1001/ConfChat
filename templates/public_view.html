@@ -31,9 +31,14 @@
                         </form>
                     </div>
                     
-                    <div id="responseSection" class="d-none">
-                        <h3>KI-Antwort:</h3>
-                        <div id="aiResponse" class="p-3 bg-light rounded markdown-content"></div>
+                    <!-- Feedback-Verarbeitungshinweis -->
+                    <div id="processingIndicator" class="alert alert-info d-none mt-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm mr-2" role="status">
+                                <span class="sr-only">Verarbeite...</span>
+                            </div>
+                            <span>Ihr Feedback wird verarbeitet. Die Seite wird automatisch aktualisiert, sobald neue Informationen verfügbar sind.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -44,6 +49,18 @@
 <script>
 // Globale Variable für den Aktualisierungstimer
 let contentUpdateTimer = null;
+let lastContentHash = null;
+
+// Funktion zum Berechnen eines einfachen Hashes für den Inhalt
+function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash;
+}
 
 // Funktion zum Prüfen des Verarbeitungsstatus
 function checkProcessingStatus() {
@@ -53,19 +70,36 @@ function checkProcessingStatus() {
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
             const newContent = doc.querySelector('.ai-container').innerHTML;
+            const newContentHash = simpleHash(newContent);
             
-            // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
-            document.querySelector('.ai-container').innerHTML = newContent;
-            
-            // Aktualisiere auch die Antwort, falls sie angezeigt wird
-            if (!document.getElementById('responseSection').classList.contains('d-none')) {
-                document.getElementById('aiResponse').innerHTML = newContent;
+            // Nur aktualisieren, wenn sich der Inhalt geändert hat
+            if (newContentHash !== lastContentHash) {
+                // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
+                document.querySelector('.ai-container').innerHTML = newContent;
+                lastContentHash = newContentHash;
+                
+                // Verarbeitungsindikator ausblenden
+                document.getElementById('processingIndicator').classList.add('d-none');
+                
+                // Kurze Hervorhebung des aktualisierten Inhalts
+                const aiContainer = document.querySelector('.ai-container');
+                aiContainer.style.transition = 'background-color 1s';
+                aiContainer.style.backgroundColor = '#e6f7ff';
+                setTimeout(() => {
+                    aiContainer.style.backgroundColor = '';
+                }, 2000);
             }
         })
         .catch(error => {
             console.error('Fehler beim Aktualisieren des Inhalts:', error);
         });
 }
+
+// Beim Laden der Seite den aktuellen Inhalt-Hash speichern
+document.addEventListener('DOMContentLoaded', function() {
+    const currentContent = document.querySelector('.ai-container').innerHTML;
+    lastContentHash = simpleHash(currentContent);
+});
 
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -79,6 +113,9 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     submitButton.disabled = true;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verarbeite...';
     
+    // Verarbeitungsindikator anzeigen
+    document.getElementById('processingIndicator').classList.remove('d-none');
+    
     // Feedback senden
     fetch('/p/{{ presentation.access_code }}/feedback', {
         method: 'POST',
@@ -90,10 +127,6 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Antwort anzeigen
-            document.getElementById('responseSection').classList.remove('d-none');
-            document.getElementById('aiResponse').innerHTML = data.ai_response_html;
-            
             // Formular zurücksetzen
             document.getElementById('feedbackContent').value = '';
             
@@ -112,11 +145,10 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
                     if (contentUpdateTimer) {
                         clearInterval(contentUpdateTimer);
                         contentUpdateTimer = null;
+                        // Verarbeitungsindikator ausblenden, falls noch sichtbar
+                        document.getElementById('processingIndicator').classList.add('d-none');
                     }
                 }, 40000);
-            } else {
-                // Wenn keine Hintergrundverarbeitung, sofort aktualisieren
-                document.querySelector('.ai-container').innerHTML = data.ai_response_html;
             }
         }
     })
