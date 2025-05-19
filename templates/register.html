@@ -29,6 +29,12 @@
                             <input type="password" class="form-control" id="password_confirm" name="password_confirm" required>
                         </div>
                         
+                        <div class="form-group">
+                            <label for="registration_password">Registrierungspasswort</label>
+                            <input type="password" class="form-control" id="registration_password" name="registration_password" required>
+                            <small class="form-text text-muted">Bitte geben Sie das Registrierungspasswort ein, das vom Administrator bereitgestellt wurde.</small>
+                        </div>
+                        
                         <div class="d-flex justify-content-between align-items-center">
                             <button type="submit" class="btn btn-primary">Registrieren</button>
                             <a href="{{ url_for('login') }}" class="text-decoration-none">Bereits registriert? Anmelden</a>

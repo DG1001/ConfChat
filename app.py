@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from markupsafe import Markup
 import markdown as md
 from flask_sqlalchemy import SQLAlchemy
@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 import markdown
 import threading
 import time
+import secrets
+import string
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
@@ -26,6 +28,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['FEEDBACK_PROCESSING_INTERVAL'] = 30  # Sekunden zwischen den Verarbeitungen
 app.config['FEEDBACK_BATCH_WINDOW'] = 30  # Sekunden, in denen Feedback gesammelt wird
 app.config['CLIENT_REFRESH_INTERVAL'] = 20  # Sekunden zwischen Client-Aktualisierungen
+
+# Registrierungspasswort
+REGISTRATION_PASSWORD = os.environ.get('REGISTRATION_PASSWORD')
+if not REGISTRATION_PASSWORD:
+    # Generiere ein zufälliges Passwort, wenn keines gesetzt ist
+    chars = string.ascii_letters + string.digits
+    REGISTRATION_PASSWORD = ''.join(secrets.choice(chars) for _ in range(12))
+    print(f"\n\n*** WICHTIG: Generiertes Registrierungspasswort: {REGISTRATION_PASSWORD} ***\n\n")
 
 # Markdown-Filter für Templates
 @app.template_filter('markdown')
@@ -155,6 +165,11 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        reg_password = request.form.get('registration_password')
+        
+        # Prüfen, ob das Registrierungspasswort korrekt ist
+        if reg_password != REGISTRATION_PASSWORD:
+            return render_template('register.html', error="Falsches Registrierungspasswort")
         
         # Prüfen, ob Benutzer bereits existiert
         existing_user = User.query.filter_by(username=username).first()
@@ -173,6 +188,7 @@ def register():
         db.session.commit()
         
         login_user(user)
+        flash('Registrierung erfolgreich!', 'success')
         return redirect(url_for('dashboard'))
     
     return render_template('register.html')
