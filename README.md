@@ -1,4 +1,6 @@
-# ConfChat - Interaktive KI-gestützte Präsentationsplattform
+# PresentAI - Interaktive KI-gestützte Präsentationsplattform
+
+![logo](screen.png)
 
 ## Systemanforderungen
 - Python 3.8 oder höher
