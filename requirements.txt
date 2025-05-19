@@ -5,3 +5,5 @@ Werkzeug
 qrcode 
 Pillow 
 requests
+markdown
+markupsafe
