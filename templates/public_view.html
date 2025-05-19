@@ -74,6 +74,7 @@ function checkProcessingStatus() {
             
             // Nur aktualisieren, wenn sich der Inhalt geändert hat
             if (newContentHash !== lastContentHash) {
+                console.log("Neuer Inhalt erkannt, aktualisiere Seite...");
                 // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
                 document.querySelector('.ai-container').innerHTML = newContent;
                 lastContentHash = newContentHash;
@@ -88,6 +89,13 @@ function checkProcessingStatus() {
                 setTimeout(() => {
                     aiContainer.style.backgroundColor = '';
                 }, 2000);
+                
+                // Benachrichtigung anzeigen
+                if ("Notification" in window && Notification.permission === "granted") {
+                    new Notification("Inhalt aktualisiert", {
+                        body: "Die Seite wurde mit neuen Informationen aktualisiert."
+                    });
+                }
             }
         })
         .catch(error => {
@@ -95,10 +103,15 @@ function checkProcessingStatus() {
         });
 }
 
-// Beim Laden der Seite den aktuellen Inhalt-Hash speichern
+// Beim Laden der Seite den aktuellen Inhalt-Hash speichern und Benachrichtigungen anfordern
 document.addEventListener('DOMContentLoaded', function() {
     const currentContent = document.querySelector('.ai-container').innerHTML;
     lastContentHash = simpleHash(currentContent);
+    
+    // Benachrichtigungen anfordern
+    if ("Notification" in window && Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
 });
 
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
@@ -137,10 +150,13 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
                     clearInterval(contentUpdateTimer);
                 }
                 
-                // Neuen Timer starten, der alle 5 Sekunden den Inhalt aktualisiert
-                contentUpdateTimer = setInterval(checkProcessingStatus, 5000);
+                // Sofort prüfen
+                checkProcessingStatus();
                 
-                // Nach 40 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
+                // Neuen Timer starten, der alle 3 Sekunden den Inhalt aktualisiert
+                contentUpdateTimer = setInterval(checkProcessingStatus, 3000);
+                
+                // Nach 60 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
                 setTimeout(() => {
                     if (contentUpdateTimer) {
                         clearInterval(contentUpdateTimer);
@@ -148,7 +164,7 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
                         // Verarbeitungsindikator ausblenden, falls noch sichtbar
                         document.getElementById('processingIndicator').classList.add('d-none');
                     }
-                }, 40000);
+                }, 60000);
             }
         }
     })
