@@ -2,3 +2,5 @@
 venv/
 instance/
 __pycache__/
+target/
+.continue/
