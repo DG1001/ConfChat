@@ -55,7 +55,12 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False)
-    presentations = db.relationship('Presentation', backref='creator', lazy=True)
+    presentations = db.relationship('Presentation', 
+                                    foreign_keys='Presentation.user_id',
+                                    backref='creator', lazy=True)
+    deleted_presentations = db.relationship('Presentation', 
+                                           foreign_keys='Presentation.deleted_by_user_id',
+                                           backref='deleted_by', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -83,6 +88,42 @@ class Presentation(db.Model):
     last_error_time = db.Column(db.DateTime, nullable=True)
     failed_context = db.Column(db.Text, nullable=True)  # Kontext bei Fehlern beibehalten
     retry_after = db.Column(db.DateTime, nullable=True)  # Wann frühestens wieder versucht werden darf
+    
+    # Soft Delete
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # Soft Delete Helper Methods
+    def soft_delete(self, deleted_by_user_id):
+        """Markiert die Präsentation als gelöscht"""
+        self.is_deleted = True
+        self.deleted_at = datetime.utcnow()
+        self.deleted_by_user_id = deleted_by_user_id
+    
+    @classmethod
+    def get_active(cls, id):
+        """Gibt eine aktive (nicht gelöschte) Präsentation zurück"""
+        return cls.query.filter_by(id=id, is_deleted=False).first()
+    
+    @classmethod
+    def get_active_or_404(cls, id):
+        """Gibt eine aktive Präsentation zurück oder 404"""
+        presentation = cls.get_active(id)
+        if not presentation:
+            from flask import abort
+            abort(404)
+        return presentation
+    
+    @classmethod
+    def get_by_access_code(cls, access_code):
+        """Gibt eine aktive Präsentation anhand des Access Codes zurück"""
+        return cls.query.filter_by(access_code=access_code, is_deleted=False).first()
+    
+    @classmethod
+    def get_active_by_user(cls, user_id):
+        """Gibt alle aktiven Präsentationen eines Benutzers zurück"""
+        return cls.query.filter_by(user_id=user_id, is_deleted=False).all()
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -274,7 +315,7 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    presentations = Presentation.query.filter_by(user_id=current_user.id).all()
+    presentations = Presentation.get_active_by_user(current_user.id)
     return render_template('dashboard.html', presentations=presentations)
 
 @app.route('/presentation/new', methods=['GET', 'POST'])
@@ -308,7 +349,7 @@ def new_presentation():
 @app.route('/presentation/<int:id>')
 @login_required
 def view_presentation(id):
-    presentation = Presentation.query.get_or_404(id)
+    presentation = Presentation.get_active_or_404(id)
     
     # Überprüfen, ob der Benutzer der Ersteller ist
     if presentation.user_id != current_user.id and not current_user.is_admin:
@@ -338,7 +379,7 @@ def view_presentation(id):
 @app.route('/presentation/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_presentation(id):
-    presentation = Presentation.query.get_or_404(id)
+    presentation = Presentation.get_active_or_404(id)
     
     # Überprüfen, ob der Benutzer der Ersteller ist
     if presentation.user_id != current_user.id and not current_user.is_admin:
@@ -361,21 +402,23 @@ def edit_presentation(id):
 @app.route('/presentation/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_presentation(id):
-    presentation = Presentation.query.get_or_404(id)
+    presentation = Presentation.get_active_or_404(id)
     
     # Überprüfen, ob der Benutzer der Ersteller ist
     if presentation.user_id != current_user.id and not current_user.is_admin:
         return redirect(url_for('dashboard'))
     
-    db.session.delete(presentation)
+    # Soft Delete: Präsentation als gelöscht markieren, aber in DB behalten
+    presentation.soft_delete(current_user.id)
     db.session.commit()
     
+    flash(f'Präsentation "{presentation.title}" wurde gelöscht.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/presentation/<int:id>/retry_ai', methods=['POST'])
 @login_required
 def retry_ai_generation(id):
-    presentation = Presentation.query.get_or_404(id)
+    presentation = Presentation.get_active_or_404(id)
     
     # Überprüfen, ob der Benutzer der Ersteller ist
     if presentation.user_id != current_user.id and not current_user.is_admin:
@@ -427,7 +470,10 @@ def retry_ai_generation(id):
 
 @app.route('/p/<access_code>')
 def public_view(access_code):
-    presentation = Presentation.query.filter_by(access_code=access_code).first_or_404()
+    presentation = Presentation.get_by_access_code(access_code)
+    if not presentation:
+        from flask import abort
+        abort(404)
     
     # Status der Verarbeitung
     processing_status = {
@@ -466,7 +512,7 @@ def process_feedback_queue():
                 with app.app_context():
                     # Präsentation und alle zugehörigen Feedbacks abrufen
                     presentation = Presentation.query.get(presentation_id)
-                    if not presentation:
+                    if not presentation or presentation.is_deleted:
                         with processing_lock:
                             if presentation_id in feedback_processing_queue:
                                 del feedback_processing_queue[presentation_id]
@@ -559,7 +605,10 @@ def schedule_feedback_processing(presentation_id):
 
 @app.route('/p/<access_code>/feedback', methods=['POST'])
 def submit_feedback(access_code):
-    presentation = Presentation.query.filter_by(access_code=access_code).first_or_404()
+    presentation = Presentation.get_by_access_code(access_code)
+    if not presentation:
+        from flask import abort
+        abort(404)
     
     feedback_content = request.form.get('feedback')
     
@@ -593,7 +642,7 @@ def submit_feedback(access_code):
 @app.route('/api/presentation/<int:id>/ai_content', methods=['GET'])
 @login_required
 def api_get_ai_content(id):
-    presentation = Presentation.query.get_or_404(id)
+    presentation = Presentation.get_active_or_404(id)
     
     # Überprüfen, ob der Benutzer der Ersteller ist
     if presentation.user_id != current_user.id and not current_user.is_admin:

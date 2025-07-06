@@ -22,7 +22,7 @@ def migrate_database():
         cursor.execute("PRAGMA table_info(presentation)")
         columns = [column[1] for column in cursor.fetchall()]
         
-        new_columns = ['last_error_message', 'last_error_time', 'failed_context', 'retry_after']
+        new_columns = ['last_error_message', 'last_error_time', 'failed_context', 'retry_after', 'is_deleted', 'deleted_at', 'deleted_by_user_id']
         columns_to_add = [col for col in new_columns if col not in columns]
         
         if not columns_to_add:
@@ -47,6 +47,18 @@ def migrate_database():
         if 'retry_after' in columns_to_add:
             cursor.execute("ALTER TABLE presentation ADD COLUMN retry_after DATETIME")
             print("Added retry_after column")
+        
+        if 'is_deleted' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN is_deleted BOOLEAN DEFAULT 0 NOT NULL")
+            print("Added is_deleted column")
+        
+        if 'deleted_at' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN deleted_at DATETIME")
+            print("Added deleted_at column")
+        
+        if 'deleted_by_user_id' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN deleted_by_user_id INTEGER")
+            print("Added deleted_by_user_id column")
         
         conn.commit()
         print("Database migration completed successfully!")
