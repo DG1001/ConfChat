@@ -453,6 +453,25 @@ def submit_feedback(access_code):
     
     feedback_content = request.form.get('feedback')
     
+    # Feedback in einer JSON-Datei protokollieren
+    try:
+        log_dir = os.path.join(os.path.dirname(__file__), 'feedback_log')
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')
+        log_file = os.path.join(log_dir, f'{access_code}_{timestamp}.json')
+        
+        with open(log_file, 'w') as f:
+            json.dump({
+                'access_code': access_code,
+                'timestamp_utc': datetime.utcnow().isoformat(),
+                'feedback': feedback_content
+            }, f, indent=4)
+            
+    except Exception as e:
+        print(f"Fehler beim Protokollieren des Feedbacks: {e}")
+
     feedback = Feedback(
         content=feedback_content,
         presentation_id=presentation.id
