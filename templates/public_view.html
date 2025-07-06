@@ -16,6 +16,11 @@
                     <div class="feedback-section">
                         <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
                         <form id="feedbackForm" class="mb-3">
+                            <div class="form-group mb-3">
+                                <label for="participantName" class="form-label">Ihr Name:</label>
+                                <input type="text" class="form-control" id="participantName" 
+                                    placeholder="Geben Sie hier Ihren Namen ein...">
+                            </div>
                             <div class="form-group">
                                 <textarea class="form-control" id="feedbackContent" rows="3" 
                                     placeholder="Geben Sie hier Ihre Frage oder zusätzliche Informationen ein..."></textarea>
@@ -33,11 +38,28 @@
 </div>
 
 <script>
+// Load name from localStorage on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedName = localStorage.getItem('participantName');
+    if (savedName) {
+        document.getElementById('participantName').value = savedName;
+    }
+});
+
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const feedbackContent = document.getElementById('feedbackContent').value;
+    const participantName = document.getElementById('participantName').value;
+    
     if (!feedbackContent.trim()) return;
+    if (!participantName.trim()) {
+        alert('Bitte geben Sie Ihren Namen ein.');
+        return;
+    }
+    
+    // Save name to localStorage
+    localStorage.setItem('participantName', participantName);
     
     const submitButton = this.querySelector('button[type="submit"]');
     const originalButtonText = submitButton.innerHTML;
@@ -49,7 +71,7 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'feedback=' + encodeURIComponent(feedbackContent)
+        body: 'feedback=' + encodeURIComponent(feedbackContent) + '&participant_name=' + encodeURIComponent(participantName)
     })
     .then(response => response.json())
     .then(data => {

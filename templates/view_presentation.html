@@ -115,7 +115,13 @@
                                 <div class="card mb-3">
                                     <div class="card-header bg-light">
                                         <div class="d-flex justify-content-between">
-                                            <span>Feedback #{{ feedback.id }}</span>
+                                            <span>
+                                                {% if feedback.participant_name %}
+                                                    <strong>{{ feedback.participant_name }}</strong> - Feedback #{{ feedback.id }}
+                                                {% else %}
+                                                    Feedback #{{ feedback.id }}
+                                                {% endif %}
+                                            </span>
                                             <span>{{ feedback.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
                                         </div>
                                     </div>
@@ -206,7 +212,12 @@ function updateFeedbacks() {
                         <div class="card mb-3">
                             <div class="card-header bg-light">
                                 <div class="d-flex justify-content-between">
-                                    <span>Feedback #${feedback.id}</span>
+                                    <span>
+                                        ${feedback.participant_name ? 
+                                            `<strong>${feedback.participant_name}</strong> - Feedback #${feedback.id}` : 
+                                            `Feedback #${feedback.id}`
+                                        }
+                                    </span>
                                     <span>${formattedDate}</span>
                                 </div>
                             </div>

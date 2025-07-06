@@ -132,6 +132,7 @@ class Feedback(db.Model):
     presentation_id = db.Column(db.Integer, db.ForeignKey('presentation.id'), nullable=False)
     is_processed = db.Column(db.Boolean, default=False)
     ai_response = db.Column(db.Text)
+    participant_name = db.Column(db.String(100), nullable=True)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -239,11 +240,15 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         Behandle verschiedene Feedback-Arten wie folgt:
 
         WICHTIGE REGELN:
-        1. Faktische Informationen (Links, URLs, konkrete Daten): Direkt in den Haupttext integrieren
+        1. Faktische Informationen (konkrete Daten): Direkt in den Haupttext integrieren. Falls URL oder Links mitgegeben werden (unter # Neue Informationen...), diese im Bereich 'Ungeprüfte Links' sammeln und im Haupttext verlinken.
         2. Fragen: Nur beantworten wenn 100% sicher, ansonsten in "Offene Fragen" Sektion sammeln
         3. Wenn jemand eine offene Frage beantwortet: Antwort zur entsprechenden Frage hinzufügen
         4. Positive/allgemeine Kommentare: In "Feedback der Teilnehmer" Sektion sammeln
         5. Struktur beibehalten, nahtlos integrieren
+        6. Keine Informationen hinzuerfinden, vor allem KEIN Feedback generieren wenn keines vorliegt! Nur Inhalte basierend auf Fakten wiedergeben!
+        7. Ignoriere Beleidungen und Schimpfwörter und nicht zum Thema passende Inhalte (Scam, porn, insult, etc.), diese werden nicht in die Infoseite übernommen!
+        
+
 
         # Bestehende Infoseite
         {previous_content}
@@ -252,7 +257,7 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         """
         
         if categorized['factual_info']:
-            prompt += "\n## Faktische Informationen (in Haupttext integrieren):\n"
+            prompt += "\n## Faktische Informationen (in Haupttext integrieren, falls Link/URL sammeln unter 'Ungeprüfte Links'):\n"
             for feedback in categorized['factual_info']:
                 prompt += f"- {feedback.content}\n"
         
@@ -281,9 +286,9 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         
         STRUKTUR-VORGABEN:
         - Beginne mit Hauptinhalt der Präsentation
-        - Faktische Informationen aus Feedback direkt in Haupttext integrieren
-        - "## Offene Fragen" Sektion für unbeantwortete Fragen
-        - "## Feedback der Teilnehmer" Sektion für Kommentare/Meinungen
+        - Verwende nur den gegebenen Kontext und Inhalt
+        - KEINE Feedback-Sektionen erstellen wenn kein echtes Feedback vorliegt
+        - Keine Informationen hinzuerfinden, vor allem KEIN Feedback generieren wenn keines vorliegt!
         - Markdown-Formatierung verwenden
         
         # Kontext der Präsentation
@@ -736,10 +741,12 @@ def submit_feedback(access_code):
         abort(404)
     
     feedback_content = request.form.get('feedback')
+    participant_name = request.form.get('participant_name')
     
     feedback = Feedback(
         content=feedback_content,
-        presentation_id=presentation.id
+        presentation_id=presentation.id,
+        participant_name=participant_name
     )
     
     db.session.add(feedback)
@@ -808,7 +815,8 @@ def api_get_feedbacks(presentation_id):
             'content': feedback.content,
             'created_at': feedback.created_at.isoformat(),
             'is_processed': feedback.is_processed,
-            'ai_response': feedback.ai_response
+            'ai_response': feedback.ai_response,
+            'participant_name': feedback.participant_name
         })
     
     return jsonify(result)
@@ -848,23 +856,30 @@ def add_columns_if_not_exist():
     with app.app_context():
         # Überprüfen, ob die Spalten bereits existieren
         inspector = db.inspect(db.engine)
-        columns = [column['name'] for column in inspector.get_columns('presentation')]
+        presentation_columns = [column['name'] for column in inspector.get_columns('presentation')]
+        feedback_columns = [column['name'] for column in inspector.get_columns('feedback')]
         
-        if 'cached_ai_content' not in columns:
+        # Presentation table columns
+        if 'cached_ai_content' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN cached_ai_content TEXT'))
         
-        if 'last_updated' not in columns:
+        if 'last_updated' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN last_updated TIMESTAMP'))
                 
-        if 'processing_scheduled' not in columns:
+        if 'processing_scheduled' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN processing_scheduled BOOLEAN'))
                 
-        if 'next_processing_time' not in columns:
+        if 'next_processing_time' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN next_processing_time TIMESTAMP'))
+        
+        # Feedback table columns
+        if 'participant_name' not in feedback_columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE feedback ADD COLUMN participant_name VARCHAR(100)'))
 
 if __name__ == '__main__':
     with app.app_context():
