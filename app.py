@@ -598,6 +598,24 @@ def delete_feedback(presentation_id, feedback_id):
     
     return redirect(url_for('view_presentation', id=presentation_id))
 
+@app.route('/presentation/<int:id>/clear_feedback_area', methods=['POST'])
+@login_required
+def clear_feedback_area(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Feedback-Bereich leeren (statischer Bereich bleibt unverändert)
+    presentation.feedback_content = None
+    presentation.last_updated = datetime.utcnow()
+    
+    db.session.commit()
+    
+    flash('Der Feedback-Bereich wurde geleert. Der statische Bereich bleibt unverändert.', 'success')
+    return redirect(url_for('view_presentation', id=id))
+
 @app.route('/presentation/<int:id>/reset_feedback_processing', methods=['POST'])
 @login_required
 def reset_feedback_processing(id):
