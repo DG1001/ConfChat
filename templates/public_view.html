@@ -13,6 +13,25 @@
                         <p class="lead">{{ presentation.description }}</p>
                     </div>
                     
+                    {% if presentation.live_info_visible %}
+                    <!-- Live-Info Bereich -->
+                    <div class="card mb-4 border-success">
+                        <div class="card-header bg-success text-white">
+                            <h3 class="mb-0">Live-Informationen</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="liveInfoContainer" class="markdown-content">
+                                <!-- Live-Info wird hier geladen -->
+                                <div class="d-flex justify-content-center">
+                                    <div class="spinner-border text-success" role="status">
+                                        <span class="sr-only">Lade...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
                     <div class="feedback-section">
                         <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
                         <form id="feedbackForm" class="mb-3">
@@ -44,7 +63,32 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedName) {
         document.getElementById('participantName').value = savedName;
     }
+    
+    {% if presentation.live_info_visible %}
+    // Live-Info laden und regelmäßig aktualisieren
+    updateLiveInfo();
+    setInterval(updateLiveInfo, 10000); // Alle 10 Sekunden aktualisieren
+    {% endif %}
 });
+
+{% if presentation.live_info_visible %}
+// Funktion zum Aktualisieren der Live-Info
+function updateLiveInfo() {
+    fetch('/api/presentation/{{ presentation.id }}/ai_content_public')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('liveInfoContainer').innerHTML = data.html;
+            } else {
+                document.getElementById('liveInfoContainer').innerHTML = '<div class="alert alert-warning">Live-Informationen sind momentan nicht verfügbar.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Aktualisieren der Live-Info:', error);
+            document.getElementById('liveInfoContainer').innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Live-Informationen.</div>';
+        });
+}
+{% endif %}
 
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     e.preventDefault();

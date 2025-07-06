@@ -94,6 +94,9 @@ class Presentation(db.Model):
     # Additional info from presenter
     additional_info = db.Column(db.Text, nullable=True)  # Zusätzliche Informationen vom Präsentierenden
     
+    # Live info visibility for public view
+    live_info_visible = db.Column(db.Boolean, default=False, nullable=False)  # Sichtbarkeit der Live-Info für Zuhörer
+    
     # Soft Delete
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -555,6 +558,26 @@ def add_additional_info(id):
     
     return redirect(url_for('view_presentation', id=id))
 
+@app.route('/presentation/<int:id>/toggle_live_info_visibility', methods=['POST'])
+@login_required
+def toggle_live_info_visibility(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Sichtbarkeit umschalten
+    presentation.live_info_visible = not presentation.live_info_visible
+    db.session.commit()
+    
+    if presentation.live_info_visible:
+        flash('Live-Info ist jetzt für Zuhörer sichtbar.', 'success')
+    else:
+        flash('Live-Info ist jetzt für Zuhörer ausgeblendet.', 'info')
+    
+    return redirect(url_for('view_presentation', id=id))
+
 @app.route('/presentation/<int:presentation_id>/feedback/<int:feedback_id>/delete', methods=['POST'])
 @login_required
 def delete_feedback(presentation_id, feedback_id):
@@ -842,6 +865,37 @@ def submit_feedback(access_code):
         'processing': True
     })
 
+@app.route('/api/presentation/<int:id>/ai_content_public', methods=['GET'])
+def api_get_ai_content_public(id):
+    """Öffentliche API für Live-Info - nur verfügbar wenn live_info_visible=True"""
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob Live-Info für Zuhörer sichtbar ist
+    if not presentation.live_info_visible:
+        return jsonify({'success': False, 'error': 'Live-Info ist nicht freigegeben'}), 403
+
+    # Statische Info-Seite und Feedback-Bereich kombinieren
+    static_content = presentation.static_info_content or ""
+    feedback_content = presentation.feedback_content or ""
+    
+    # Inhalte kombinieren
+    if static_content and feedback_content:
+        combined_content = f"{static_content}\n\n{feedback_content}"
+    elif static_content:
+        combined_content = static_content
+    elif feedback_content:
+        combined_content = feedback_content
+    else:
+        combined_content = "Noch keine Inhalte verfügbar."
+    
+    # Zu HTML konvertieren
+    content_html = markdown_to_html(combined_content)
+    
+    return jsonify({
+        'success': True,
+        'html': str(content_html)
+    })
+
 @app.route('/api/presentation/<int:id>/ai_content', methods=['GET'])
 @login_required
 def api_get_ai_content(id):
@@ -953,6 +1007,11 @@ def add_columns_if_not_exist():
         if 'additional_info' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN additional_info TEXT'))
+        
+        # Live info visibility column
+        if 'live_info_visible' not in presentation_columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN live_info_visible BOOLEAN DEFAULT FALSE'))
         
         # Feedback table columns
         if 'participant_name' not in feedback_columns:
