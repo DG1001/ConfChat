@@ -78,7 +78,9 @@ class Presentation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     feedbacks = db.relationship('Feedback', backref='presentation', lazy=True, cascade="all, delete-orphan")
-    cached_ai_content = db.Column(db.Text)
+    cached_ai_content = db.Column(db.Text)  # Deprecated - wird durch static_info_content ersetzt
+    static_info_content = db.Column(db.Text)  # Statische Info-Seite (einmal generiert)
+    feedback_content = db.Column(db.Text)     # Dynamischer Feedback-Bereich
     last_updated = db.Column(db.DateTime)
     processing_scheduled = db.Column(db.Boolean, default=False)
     next_processing_time = db.Column(db.DateTime)
@@ -166,163 +168,38 @@ def markdown_to_html(text):
     return Markup(markdown.markdown(cleaned_text, extensions=['tables']))
 
 # KI-Integration
-def categorize_and_filter_feedback(feedbacks):
-    """Kategorisiert und filtert Feedback nach Typ und Inhalt"""
-    factual_info = []
-    questions = []
-    positive_comments = []
-    neutral_comments = []
+
+def generate_static_info_content(title, description, context, content):
+    """Generiert statische Info-Seite basierend auf Präsentationsdaten."""
+    print("\n--- Statische Info-Generierung ---")
+    print(f"Titel: {title}")
+    print(f"Beschreibung: {description}")
+    print("----------------------------------\n")
     
-    # Einfache Schlüsselwort-basierte Kategorisierung
-    for feedback in feedbacks:
-        content = feedback.content.lower()
-        
-        # Filter für unangemessene Inhalte (einfache Blacklist)
-        inappropriate_keywords = [
-            'dumm', 'blöd', 'scheiß', 'mist', 'idiot', 'schwachsinn', 
-            'scheisse', 'fuck', 'shit', 'damn', 'verdammt'
-        ]
-        
-        # Überspringe unangemessene Inhalte
-        if any(word in content for word in inappropriate_keywords):
-            print(f"Feedback gefiltert (unangemessen): {feedback.content[:50]}...")
-            continue
-        
-        # Kategorisierung nach Inhalt
-        if any(indicator in content for indicator in ['http', 'www.', '.com', '.de', '.org', 'link zu', 'siehe auch']):
-            factual_info.append(feedback)
-        elif any(answer_indicator in content for answer_indicator in 
-                ['zu der frage', 'die antwort', 'antwort auf', 'zu ihrer frage', 'dazu kann ich sagen']):
-            # Antworten auf Fragen als neutrale Kommentare behandeln
-            neutral_comments.append(feedback)
-        elif content.strip().endswith('?') or any(question_word in content for question_word in 
-                                                 ['wie', 'was', 'wann', 'wo', 'warum', 'welche', 'können sie', 'könnten sie']):
-            questions.append(feedback)
-        elif any(positive in content for positive in 
-                ['toll', 'super', 'klasse', 'gut', 'interessant', 'spannend', 'gefällt', 'danke']):
-            positive_comments.append(feedback)
-        else:
-            neutral_comments.append(feedback)
+    prompt = f"""
+    Erstelle eine strukturierte und informative Seite im Markdown-Format basierend auf den folgenden Präsentationsinformationen.
     
-    return {
-        'factual_info': factual_info,
-        'questions': questions, 
-        'positive_comments': positive_comments,
-        'neutral_comments': neutral_comments
-    }
-
-def generate_ai_content(feedbacks, previous_content=None, context=None, content=None, presentation_id=None):
-    """Generiert oder aktualisiert KI-basierte Inhalte."""
-    print("\n--- KI-Aufruf ---")
-    if previous_content:
-        print("Bestehender Kontext wird verwendet: Ja")
-    else:
-        print("Bestehender Kontext wird verwendet: Nein")
-
-    if feedbacks:
-        print(f"Anzahl der Feedbacks: {len(feedbacks)}")
-        
-        # Feedback kategorisieren und filtern
-        categorized = categorize_and_filter_feedback(feedbacks)
-        print(f"Kategorisiert: {len(categorized['factual_info'])} Fakten, {len(categorized['questions'])} Fragen, {len(categorized['positive_comments'])} positive, {len(categorized['neutral_comments'])} neutrale")
-    else:
-        print("Anzahl der Feedbacks: 0")
-        categorized = {'factual_info': [], 'questions': [], 'positive_comments': [], 'neutral_comments': []}
-    print("------------------\n")
+    WICHTIGE REGELN:
+    - Verwende nur die gegebenen Informationen als Grundlage
+    - Du kannst allgemein bekannte Fakten zu dem Thema ergänzen, aber keine spekulativen Informationen
+    - Strukturiere den Inhalt logisch und verständlich
+    - Verwende Markdown-Formatierung für klare Struktur
+    - Keine Feedback-Sektionen erstellen - das ist nur die Info-Seite
+    - Keine Informationen erfinden, die nicht aus den gegebenen Daten ableitbar sind
     
-    if previous_content:
-        # Inkrementelles Update
-        if not feedbacks:
-            return previous_content
-        
-        prompt = f"""
-        Aktualisiere die folgende Infoseite im Markdown-Format mit den neuen Feedbacks und Informationen der Zuhörer.
-        Behandle verschiedene Feedback-Arten wie folgt:
-
-        WICHTIGE REGELN:
-        1. Faktische Informationen (konkrete Daten): Direkt in den Haupttext integrieren. Falls URL oder Links mitgegeben werden (unter # Neue Informationen...), diese im Bereich 'Ungeprüfte Links' sammeln und im Haupttext verlinken.
-        2. Fragen: Nur beantworten wenn 100% sicher, ansonsten in "Offene Fragen" Sektion sammeln
-        3. Wenn jemand eine offene Frage beantwortet: Antwort zur entsprechenden Frage hinzufügen
-        4. Positive/allgemeine Kommentare: In "Feedback der Teilnehmer" Sektion sammeln
-        5. Struktur beibehalten, nahtlos integrieren
-        6. Keine Informationen hinzuerfinden, vor allem KEIN Feedback generieren wenn keines vorliegt! Nur Inhalte basierend auf Fakten wiedergeben!
-        7. Ignoriere Beleidungen und Schimpfwörter und nicht zum Thema passende Inhalte (Scam, porn, insult, etc.), diese werden nicht in die Infoseite übernommen!
-        
-
-
-        # Bestehende Infoseite
-        {previous_content}
-
-        # Neue Informationen kategorisiert:
-        """
-        
-        if categorized['factual_info']:
-            prompt += "\n## Faktische Informationen (in Haupttext integrieren, falls Link/URL sammeln unter 'Ungeprüfte Links'):\n"
-            for feedback in categorized['factual_info']:
-                prompt += f"- {feedback.content}\n"
-        
-        if categorized['questions']:
-            prompt += "\n## Fragen (nur bei 100% Sicherheit beantworten, sonst sammeln):\n"
-            for feedback in categorized['questions']:
-                prompt += f"- {feedback.content}\n"
-        
-        if categorized['positive_comments']:
-            prompt += "\n## Positive Kommentare (in Feedback-Sektion sammeln):\n"
-            for feedback in categorized['positive_comments']:
-                prompt += f"- {feedback.content}\n"
-        
-        if categorized['neutral_comments']:
-            prompt += "\n## Weitere Kommentare:\n"
-            for feedback in categorized['neutral_comments']:
-                prompt += f"- {feedback.content}\n"
+    # Titel der Präsentation
+    {title}
     
-    else:
-        # Ersterstellung
-        if not context or not content:
-            return "## Fehler\nKontext und Inhalt für die Ersterstellung erforderlich."
-        
-        prompt = f"""
-        Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
-        
-        STRUKTUR-VORGABEN:
-        - Beginne mit Hauptinhalt der Präsentation
-        - Verwende nur den gegebenen Kontext und Inhalt
-        - KEINE Feedback-Sektionen erstellen wenn kein echtes Feedback vorliegt
-        - Keine Informationen hinzuerfinden, vor allem KEIN Feedback generieren wenn keines vorliegt!
-        - Markdown-Formatierung verwenden
-        
-        # Kontext der Präsentation
-        {context}
-        
-        # Hauptinhalt der Präsentation
-        {content}
-        """
-        
-        if feedbacks and any(categorized.values()):
-            prompt += "\n\n# Feedback der Zuhörer (kategorisiert):\n"
-            
-            if categorized['factual_info']:
-                prompt += "\n## Faktische Informationen (in Haupttext integrieren):\n"
-                for feedback in categorized['factual_info']:
-                    prompt += f"- {feedback.content}\n"
-            
-            if categorized['questions']:
-                prompt += "\n## Fragen (nur bei 100% Sicherheit beantworten, sonst in 'Offene Fragen' sammeln):\n"
-                for feedback in categorized['questions']:
-                    prompt += f"- {feedback.content}\n"
-            
-            if categorized['positive_comments']:
-                prompt += "\n## Positive Kommentare (in Feedback-Sektion sammeln):\n"
-                for feedback in categorized['positive_comments']:
-                    prompt += f"- {feedback.content}\n"
-            
-            if categorized['neutral_comments']:
-                prompt += "\n## Weitere Kommentare:\n"
-                for feedback in categorized['neutral_comments']:
-                    prompt += f"- {feedback.content}\n"
-
+    # Beschreibung
+    {description}
     
-    # OpenAI-API-Anfrage
+    # Kontext/Hintergrund
+    {context}
+    
+    # Hauptinhalt
+    {content}
+    """
+    
     try:
         response = requests.post(
             "https://api.openai.com/v1/chat/completions",
@@ -333,7 +210,7 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. \n\nWICHTIGE REGELN:\n1. Faktische Informationen (Links, URLs, konkrete Daten) DIREKT in den Haupttext integrieren\n2. Fragen NUR beantworten wenn du 100% sicher bist, sonst in '## Offene Fragen' Sektion sammeln\n3. Wenn jemand auf eine offene Frage antwortet, die Antwort zur entsprechenden Frage hinzufügen\n4. Positive/allgemeine Kommentare in '## Feedback der Teilnehmer' Sektion sammeln\n5. Struktur: Hauptinhalt → Zusatzinfos → Offene Fragen → Feedback\n6. Verwende Markdown-Formatierung für klare Struktur\n7. Halte bestehende Struktur bei und integriere nahtlos"},
+                    {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Erstelle klare, sachliche Inhalte basierend auf den gegebenen Informationen."},
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": 1500
@@ -341,20 +218,90 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         )
         response_data = response.json()
         if 'choices' not in response_data:
-            error_msg = f"Unerwartete Antwort von OpenAI: {response_data}"
-            print(f"Fehler bei der KI-Anfrage: {error_msg}")
-            store_error_context(presentation_id, error_msg, previous_content, feedbacks)
-            return None  # Kein Inhalt zurückgeben bei Fehler
+            print(f"Fehler bei der statischen Info-Generierung: {response_data}")
+            return None
         
-        # KI-Antwort bereinigen (Markdown-Code-Blöcke entfernen)
         ai_response = response_data['choices'][0]['message']['content']
         cleaned_response = clean_markdown_response(ai_response)
         return cleaned_response
     except Exception as e:
-        error_msg = f"Fehler bei der KI-Anfrage: {str(e)}"
-        print(error_msg)
-        store_error_context(presentation_id, error_msg, previous_content, feedbacks)
-        return None  # Kein Inhalt zurückgeben bei Fehler
+        print(f"Fehler bei der statischen Info-Generierung: {str(e)}")
+        return None
+
+def generate_feedback_content(feedbacks, static_info_content, existing_feedback_content=None):
+    """Generiert dynamischen Feedback-Bereich basierend auf Zuhörer-Feedback."""
+    print("\n--- Feedback-Bereich Generierung ---")
+    print(f"Anzahl der Feedbacks: {len(feedbacks) if feedbacks else 0}")
+    print("-----------------------------------\n")
+    
+    if not feedbacks:
+        return ""
+    
+    prompt = f"""
+    Erstelle einen strukturierten Feedback-Bereich im Markdown-Format basierend auf den Zuhörer-Feedbacks.
+    
+    WICHTIGE REGELN FÜR KATEGORISIERUNG UND FILTERUNG:
+    - Kategorisiere das Feedback AUTOMATISCH und INTELLIGENT in folgende Bereiche:
+      * Faktische Informationen und Ergänzungen (konkrete Daten, Zahlen, Fakten)
+      * Fragen (erkennbar an Fragezeichen oder Fragewörtern)
+      * Antworten auf vorherige Fragen
+      * Ungeprüfte Links (URLs, Links - SEPARATE Sektion mit Warnung!)
+      * Positive Kommentare und Meinungen
+      * Sonstige relevante Kommentare
+    
+    - IGNORIERE KOMPLETT und ERWÄHNE NICHT:
+      * Beleidigungen, Schimpfwörter, persönliche Angriffe
+      * Spam, Werbung, Off-Topic Inhalte
+      * Unpassende oder anstößige Inhalte
+      * Trolle und unsinnige Beiträge
+    
+    - SPEZIELLE BEHANDLUNG:
+      * **ZUSAMMENFASSUNG**: Fasse ähnliche Fragen/Kommentare/Hinweise intelligent zusammen für bessere Lesbarkeit
+      * **Links einzeln auflisten**: Jeder Link in eigener Zeile mit kurzer KI-Beschreibung (falls erkennbar)
+      * **Struktur**: Verwende klare Markdown-Überschriften und Unterpunkte
+      * **Kontext nutzen**: Verwende die Info-Seite als Kontext für bessere Kategorisierung
+      * **Nur echtes Feedback**: Keine Informationen erfinden - nur echtes, relevantes Feedback verwenden
+    
+    # Info-Seite (als Kontext für Kategorisierung)
+    {static_info_content}
+    
+    # Bisheriger Feedback-Bereich (falls vorhanden)
+    {existing_feedback_content or "Noch kein Feedback vorhanden."}
+    
+    # Alle Zuhörer-Feedbacks (bitte intelligent kategorisieren und filtern):
+    """
+    
+    for i, feedback in enumerate(feedbacks, 1):
+        prompt += f"\n{i}. {feedback.content}"
+    
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {app.config['OPENAI_API_KEY']}"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "Du bist ein Experte für die Kategorisierung und Strukturierung von Feedback im Markdown-Format. Erstelle klare, strukturierte Feedback-Bereiche und ignoriere unpassende Inhalte komplett."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1500
+            }
+        )
+        response_data = response.json()
+        if 'choices' not in response_data:
+            print(f"Fehler bei der Feedback-Generierung: {response_data}")
+            return None
+        
+        ai_response = response_data['choices'][0]['message']['content']
+        cleaned_response = clean_markdown_response(ai_response)
+        return cleaned_response
+    except Exception as e:
+        print(f"Fehler bei der Feedback-Generierung: {str(e)}")
+        return None
+
 
 def store_error_context(presentation_id, error_msg, previous_content, feedbacks):
     """Speichert Fehlerkontext für spätere Wiederverwendung."""
@@ -471,6 +418,12 @@ def new_presentation():
         
         db.session.add(presentation)
         db.session.commit()
+        
+        # Statische Info-Seite generieren
+        static_info = generate_static_info_content(title, description, context, content)
+        if static_info:
+            presentation.static_info_content = static_info
+            db.session.commit()
         
         return redirect(url_for('dashboard'))
     
@@ -665,24 +618,23 @@ def process_feedback_queue():
                                 del feedback_processing_queue[presentation_id]
                         continue
 
-                    # Kontext für KI-Aufruf bestimmen (mit Fehlerkontext falls verfügbar)
-                    content_to_use = presentation.failed_context or presentation.cached_ai_content
+                    # Alle Feedbacks für diese Präsentation abrufen (für Kontext)
+                    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation_id).all()
                     
-                    # KI-Antwort generieren (inkrementell)
-                    ai_response = generate_ai_content(
-                        feedbacks=unprocessed_feedbacks, 
-                        previous_content=content_to_use,
-                        presentation_id=presentation_id
+                    # Neuen Feedback-Bereich generieren
+                    feedback_response = generate_feedback_content(
+                        feedbacks=all_feedbacks,
+                        static_info_content=presentation.static_info_content,
+                        existing_feedback_content=presentation.feedback_content
                     )
                     
                     # Nur bei erfolgreichem KI-Aufruf aktualisieren
-                    if ai_response is not None:
+                    if feedback_response is not None:
                         for feedback in unprocessed_feedbacks:
-                            feedback.ai_response = ai_response
                             feedback.is_processed = True
                         
-                        # Präsentations-Cache aktualisieren und Fehlerkontext löschen
-                        presentation.cached_ai_content = ai_response
+                        # Feedback-Bereich aktualisieren und Fehlerkontext löschen
+                        presentation.feedback_content = feedback_response
                         presentation.last_updated = datetime.utcnow()
                         presentation.processing_scheduled = False
                         presentation.next_processing_time = None
@@ -700,7 +652,7 @@ def process_feedback_queue():
                     else:
                         # Bei Fehler: Feedbacks nicht als verarbeitet markieren
                         # Warteschlange nicht entfernen, damit später erneut versucht wird
-                        print(f"KI-Aufruf für Präsentation {presentation_id} fehlgeschlagen - wird später erneut versucht")
+                        print(f"Feedback-Generierung für Präsentation {presentation_id} fehlgeschlagen - wird später erneut versucht")
                         db.session.commit()  # Fehlerkontext speichern
             
             except Exception as e:
@@ -780,28 +732,21 @@ def api_get_ai_content(id):
     if presentation.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-    # Prüfen, ob wir bereits einen gecachten KI-Inhalt haben
-    if not presentation.cached_ai_content:
-        # KI-Inhalte generieren (initial)
-        initial_feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
-        ai_content = generate_ai_content(
-            feedbacks=initial_feedbacks, 
-            context=presentation.context, 
-            content=presentation.content,
-            presentation_id=presentation.id
-        )
-        
-        # Cache aktualisieren
-        presentation.cached_ai_content = ai_content
-        presentation.last_updated = datetime.utcnow()
-        db.session.commit()
-    else:
-        ai_content = presentation.cached_ai_content
+    # Statische Info-Seite und Feedback-Bereich kombinieren
+    combined_content = ""
+    
+    # Statische Info-Seite hinzufügen
+    if presentation.static_info_content:
+        combined_content += presentation.static_info_content
+    
+    # Feedback-Bereich hinzufügen (falls vorhanden)
+    if presentation.feedback_content:
+        combined_content += "\n\n---\n\n# Feedback der Zuhörer\n\n" + presentation.feedback_content
 
     # Markdown zu HTML konvertieren
-    ai_content_html = markdown_to_html(ai_content)
+    combined_html = markdown_to_html(combined_content)
 
-    return jsonify({'success': True, 'html': ai_content_html})
+    return jsonify({'success': True, 'html': combined_html})
 
 
 @app.route('/api/feedbacks/<int:presentation_id>', methods=['GET'])
@@ -875,6 +820,15 @@ def add_columns_if_not_exist():
         if 'next_processing_time' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN next_processing_time TIMESTAMP'))
+        
+        # New content separation columns
+        if 'static_info_content' not in presentation_columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN static_info_content TEXT'))
+        
+        if 'feedback_content' not in presentation_columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN feedback_content TEXT'))
         
         # Feedback table columns
         if 'participant_name' not in feedback_columns:
