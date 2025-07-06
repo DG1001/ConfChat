@@ -138,9 +138,31 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # Markdown zu HTML konvertieren
+def clean_markdown_response(text):
+    """Entfernt Markdown-Code-Block-Markierungen aus KI-Antworten"""
+    if not text:
+        return text
+    
+    # Entferne ```markdown am Anfang und ``` am Ende
+    text = text.strip()
+    
+    # Prüfe und entferne ```markdown am Anfang (case-insensitive)
+    if text.lower().startswith('```markdown'):
+        text = text[11:].strip()
+    elif text.startswith('```'):
+        text = text[3:].strip()
+    
+    # Entferne ``` am Ende
+    if text.endswith('```'):
+        text = text[:-3].strip()
+    
+    return text
+
 def markdown_to_html(text):
     """Konvertiert Markdown-Text zu HTML"""
-    return Markup(markdown.markdown(text, extensions=['tables']))
+    # Erst die Code-Block-Markierungen entfernen
+    cleaned_text = clean_markdown_response(text)
+    return Markup(markdown.markdown(cleaned_text, extensions=['tables']))
 
 # KI-Integration
 def categorize_and_filter_feedback(feedbacks):
@@ -318,7 +340,11 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
             print(f"Fehler bei der KI-Anfrage: {error_msg}")
             store_error_context(presentation_id, error_msg, previous_content, feedbacks)
             return None  # Kein Inhalt zurückgeben bei Fehler
-        return response_data['choices'][0]['message']['content']
+        
+        # KI-Antwort bereinigen (Markdown-Code-Blöcke entfernen)
+        ai_response = response_data['choices'][0]['message']['content']
+        cleaned_response = clean_markdown_response(ai_response)
+        return cleaned_response
     except Exception as e:
         error_msg = f"Fehler bei der KI-Anfrage: {str(e)}"
         print(error_msg)
