@@ -143,6 +143,51 @@ def markdown_to_html(text):
     return Markup(markdown.markdown(text, extensions=['tables']))
 
 # KI-Integration
+def categorize_and_filter_feedback(feedbacks):
+    """Kategorisiert und filtert Feedback nach Typ und Inhalt"""
+    factual_info = []
+    questions = []
+    positive_comments = []
+    neutral_comments = []
+    
+    # Einfache Schlüsselwort-basierte Kategorisierung
+    for feedback in feedbacks:
+        content = feedback.content.lower()
+        
+        # Filter für unangemessene Inhalte (einfache Blacklist)
+        inappropriate_keywords = [
+            'dumm', 'blöd', 'scheiß', 'mist', 'idiot', 'schwachsinn', 
+            'scheisse', 'fuck', 'shit', 'damn', 'verdammt'
+        ]
+        
+        # Überspringe unangemessene Inhalte
+        if any(word in content for word in inappropriate_keywords):
+            print(f"Feedback gefiltert (unangemessen): {feedback.content[:50]}...")
+            continue
+        
+        # Kategorisierung nach Inhalt
+        if any(indicator in content for indicator in ['http', 'www.', '.com', '.de', '.org', 'link zu', 'siehe auch']):
+            factual_info.append(feedback)
+        elif any(answer_indicator in content for answer_indicator in 
+                ['zu der frage', 'die antwort', 'antwort auf', 'zu ihrer frage', 'dazu kann ich sagen']):
+            # Antworten auf Fragen als neutrale Kommentare behandeln
+            neutral_comments.append(feedback)
+        elif content.strip().endswith('?') or any(question_word in content for question_word in 
+                                                 ['wie', 'was', 'wann', 'wo', 'warum', 'welche', 'können sie', 'könnten sie']):
+            questions.append(feedback)
+        elif any(positive in content for positive in 
+                ['toll', 'super', 'klasse', 'gut', 'interessant', 'spannend', 'gefällt', 'danke']):
+            positive_comments.append(feedback)
+        else:
+            neutral_comments.append(feedback)
+    
+    return {
+        'factual_info': factual_info,
+        'questions': questions, 
+        'positive_comments': positive_comments,
+        'neutral_comments': neutral_comments
+    }
+
 def generate_ai_content(feedbacks, previous_content=None, context=None, content=None, presentation_id=None):
     """Generiert oder aktualisiert KI-basierte Inhalte."""
     print("\n--- KI-Aufruf ---")
@@ -153,8 +198,13 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
 
     if feedbacks:
         print(f"Anzahl der Feedbacks: {len(feedbacks)}")
+        
+        # Feedback kategorisieren und filtern
+        categorized = categorize_and_filter_feedback(feedbacks)
+        print(f"Kategorisiert: {len(categorized['factual_info'])} Fakten, {len(categorized['questions'])} Fragen, {len(categorized['positive_comments'])} positive, {len(categorized['neutral_comments'])} neutrale")
     else:
         print("Anzahl der Feedbacks: 0")
+        categorized = {'factual_info': [], 'questions': [], 'positive_comments': [], 'neutral_comments': []}
     print("------------------\n")
     
     if previous_content:
@@ -163,17 +213,41 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
             return previous_content
         
         prompt = f"""
-        Aktualisiere die folgende Infoseite im Markdown-Format mit den neuen Feedbacks und Fragen der Zuhörer.
-        Integriere die neuen Informationen nahtlos und logisch in die bestehende Struktur.
-        Gib nur die VOLLSTÄNDIGE, aktualisierte Infoseite zurück.
+        Aktualisiere die folgende Infoseite im Markdown-Format mit den neuen Feedbacks und Informationen der Zuhörer.
+        Behandle verschiedene Feedback-Arten wie folgt:
+
+        WICHTIGE REGELN:
+        1. Faktische Informationen (Links, URLs, konkrete Daten): Direkt in den Haupttext integrieren
+        2. Fragen: Nur beantworten wenn 100% sicher, ansonsten in "Offene Fragen" Sektion sammeln
+        3. Wenn jemand eine offene Frage beantwortet: Antwort zur entsprechenden Frage hinzufügen
+        4. Positive/allgemeine Kommentare: In "Feedback der Teilnehmer" Sektion sammeln
+        5. Struktur beibehalten, nahtlos integrieren
 
         # Bestehende Infoseite
         {previous_content}
 
-        # Neue Feedbacks und Fragen
+        # Neue Informationen kategorisiert:
         """
-        for feedback in feedbacks:
-            prompt += f"- {feedback.content}\n"
+        
+        if categorized['factual_info']:
+            prompt += "\n## Faktische Informationen (in Haupttext integrieren):\n"
+            for feedback in categorized['factual_info']:
+                prompt += f"- {feedback.content}\n"
+        
+        if categorized['questions']:
+            prompt += "\n## Fragen (nur bei 100% Sicherheit beantworten, sonst sammeln):\n"
+            for feedback in categorized['questions']:
+                prompt += f"- {feedback.content}\n"
+        
+        if categorized['positive_comments']:
+            prompt += "\n## Positive Kommentare (in Feedback-Sektion sammeln):\n"
+            for feedback in categorized['positive_comments']:
+                prompt += f"- {feedback.content}\n"
+        
+        if categorized['neutral_comments']:
+            prompt += "\n## Weitere Kommentare:\n"
+            for feedback in categorized['neutral_comments']:
+                prompt += f"- {feedback.content}\n"
     
     else:
         # Ersterstellung
@@ -183,17 +257,42 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         prompt = f"""
         Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
         
+        STRUKTUR-VORGABEN:
+        - Beginne mit Hauptinhalt der Präsentation
+        - Faktische Informationen aus Feedback direkt in Haupttext integrieren
+        - "## Offene Fragen" Sektion für unbeantwortete Fragen
+        - "## Feedback der Teilnehmer" Sektion für Kommentare/Meinungen
+        - Markdown-Formatierung verwenden
+        
         # Kontext der Präsentation
         {context}
         
         # Hauptinhalt der Präsentation
         {content}
         """
-        if feedbacks:
-            prompt += "\n\n# Feedback und Fragen der Zuhörer\n"
-            for feedback in feedbacks:
-                prompt += f"- {feedback.content}\n"
-            prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
+        
+        if feedbacks and any(categorized.values()):
+            prompt += "\n\n# Feedback der Zuhörer (kategorisiert):\n"
+            
+            if categorized['factual_info']:
+                prompt += "\n## Faktische Informationen (in Haupttext integrieren):\n"
+                for feedback in categorized['factual_info']:
+                    prompt += f"- {feedback.content}\n"
+            
+            if categorized['questions']:
+                prompt += "\n## Fragen (nur bei 100% Sicherheit beantworten, sonst in 'Offene Fragen' sammeln):\n"
+                for feedback in categorized['questions']:
+                    prompt += f"- {feedback.content}\n"
+            
+            if categorized['positive_comments']:
+                prompt += "\n## Positive Kommentare (in Feedback-Sektion sammeln):\n"
+                for feedback in categorized['positive_comments']:
+                    prompt += f"- {feedback.content}\n"
+            
+            if categorized['neutral_comments']:
+                prompt += "\n## Weitere Kommentare:\n"
+                for feedback in categorized['neutral_comments']:
+                    prompt += f"- {feedback.content}\n"
 
     
     # OpenAI-API-Anfrage
@@ -207,7 +306,7 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Verwende Markdown-Formatierung für eine klare Struktur mit Überschriften, Listen, Hervorhebungen und anderen Elementen."},
+                    {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. \n\nWICHTIGE REGELN:\n1. Faktische Informationen (Links, URLs, konkrete Daten) DIREKT in den Haupttext integrieren\n2. Fragen NUR beantworten wenn du 100% sicher bist, sonst in '## Offene Fragen' Sektion sammeln\n3. Wenn jemand auf eine offene Frage antwortet, die Antwort zur entsprechenden Frage hinzufügen\n4. Positive/allgemeine Kommentare in '## Feedback der Teilnehmer' Sektion sammeln\n5. Struktur: Hauptinhalt → Zusatzinfos → Offene Fragen → Feedback\n6. Verwende Markdown-Formatierung für klare Struktur\n7. Halte bestehende Struktur bei und integriere nahtlos"},
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": 1500
