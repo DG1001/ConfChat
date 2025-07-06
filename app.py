@@ -265,6 +265,7 @@ def generate_feedback_content(feedbacks, static_info_content, existing_feedback_
     ABSOLUTES VERBOT:
     - NIEMALS bestehende Inhalte löschen oder überschreiben
     - NIEMALS Links außerhalb der "Ungeprüfte Links" Sektion
+    - NIEMALS Inhalte erfinden, die nicht aus den neuen Feedbacks ableitbar sind
     
     IGNORIERE KOMPLETT, NICHT AUFFÜHREN!:
     - Beleidigungen, Spam, Off-Topic, Trolle, Werbung, Porn (sog. Erwachseneninhalte), Nicht zum Thema passende Inhalte (du kennst den Kontext, also ignoriere alles, was nicht zum Thema passt; z.b. Vortrag über KI, keine politischen Themen!)
