@@ -506,6 +506,32 @@ def delete_presentation(id):
     flash(f'Präsentation "{presentation.title}" wurde gelöscht.', 'success')
     return redirect(url_for('dashboard'))
 
+@app.route('/presentation/<int:id>/reset_feedback_processing', methods=['POST'])
+@login_required
+def reset_feedback_processing(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Alle Feedbacks dieser Präsentation wieder auf nicht verarbeitet setzen
+    feedbacks = Feedback.query.filter_by(presentation_id=id).all()
+    for feedback in feedbacks:
+        feedback.is_processed = False
+    
+    # Feedback-Verarbeitung planen
+    presentation.processing_scheduled = True
+    presentation.next_processing_time = datetime.utcnow() + timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
+    
+    db.session.commit()
+    
+    # Feedback-Verarbeitung im Hintergrund planen
+    schedule_feedback_processing(presentation.id)
+    
+    flash('Alle Feedbacks wurden wieder auf wartend gestellt und die Verarbeitung wurde geplant.', 'success')
+    return redirect(url_for('view_presentation', id=id))
+
 @app.route('/presentation/<int:id>/retry_ai', methods=['POST'])
 @login_required
 def retry_ai_generation(id):
