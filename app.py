@@ -238,41 +238,48 @@ def generate_feedback_content(feedbacks, static_info_content, existing_feedback_
         return ""
     
     prompt = f"""
-    Erstelle einen strukturierten Feedback-Bereich im Markdown-Format basierend auf den Zuhörer-Feedbacks.
+    WICHTIG: Du sollst den bestehenden Feedback-Bereich als BASIS nehmen und nur die NEUEN Feedbacks ERGÄNZEN!
     
-    WICHTIGE REGELN FÜR KATEGORISIERUNG UND FILTERUNG:
-    - Kategorisiere das Feedback AUTOMATISCH und INTELLIGENT in folgende Bereiche:
-      * Faktische Informationen und Ergänzungen (konkrete Daten, Zahlen, Fakten)
-      * Fragen (erkennbar an Fragezeichen oder Fragewörtern)
-      * Antworten auf vorherige Fragen
-      * Ungeprüfte Links (URLs, Links - SEPARATE Sektion mit Warnung!)
-      * Positive Kommentare und Meinungen
-      * Sonstige relevante Kommentare
+    AUFGABE: Erweitere den bestehenden Feedback-Bereich um die neuen Feedbacks (nicht alles neu erstellen!).
     
-    - IGNORIERE KOMPLETT und ERWÄHNE NICHT:
-      * Beleidigungen, Schimpfwörter, persönliche Angriffe
-      * Spam, Werbung, Off-Topic Inhalte
-      * Unpassende oder anstößige Inhalte
-      * Trolle und unsinnige Beiträge
+    KRITISCHE REGEL: ALLE URLs/Links GEHÖREN NUR IN "## ⚠️ Ungeprüfte Links" - NIEMALS WOANDERS!
     
-    - SPEZIELLE BEHANDLUNG:
-      * **ZUSAMMENFASSUNG**: Fasse ähnliche Fragen/Kommentare/Hinweise intelligent zusammen für bessere Lesbarkeit
-      * **Links einzeln auflisten**: Jeder Link in eigener Zeile mit kurzer KI-Beschreibung (falls erkennbar)
-      * **Struktur**: Verwende klare Markdown-Überschriften und Unterpunkte
-      * **Kontext nutzen**: Verwende die Info-Seite als Kontext für bessere Kategorisierung
-      * **Nur echtes Feedback**: Keine Informationen erfinden - nur echtes, relevantes Feedback verwenden
+    VORGEHEN:
+    1. Nimm den bestehenden Feedback-Bereich als Grundlage
+    2. Füge die neuen Feedbacks in die passenden Sektionen ein
+    3. Erweitere bestehende Sektionen oder erstelle neue falls nötig
+    4. Fasse ähnliche neue Inhalte mit bestehenden zusammen
+    
+    LINK-BEHANDLUNG:
+    - Extrahiere ALLE URLs/Links aus den NEUEN Feedbacks
+    - Füge sie zur bestehenden "## ⚠️ Ungeprüfte Links" Sektion hinzu
+    - Format: "- [Beschreibung](URL) - Info" (jeder Link einzeln)
+    
+    KATEGORISIERUNG (nur für NEUE Feedbacks):
+    - Faktische Informationen (Daten, Zahlen, Fakten - ABER KEINE LINKS!)
+    - Fragen (erkennbar an Fragezeichen oder Fragewörtern)
+    - Antworten auf vorherige Fragen
+    - Positive Kommentare und Meinungen  
+    - Sonstige relevante Kommentare
+    
+    ABSOLUTES VERBOT:
+    - NIEMALS bestehende Inhalte löschen oder überschreiben
+    - NIEMALS Links außerhalb der "Ungeprüfte Links" Sektion
+    
+    IGNORIERE KOMPLETT:
+    - Beleidigungen, Spam, Off-Topic, Trolle
     
     # Info-Seite (als Kontext für Kategorisierung)
     {static_info_content}
     
-    # Bisheriger Feedback-Bereich (falls vorhanden)
+    # Bisheriger Feedback-Bereich (bereits verarbeitet)
     {existing_feedback_content or "Noch kein Feedback vorhanden."}
     
-    # Alle Zuhörer-Feedbacks (bitte intelligent kategorisieren und filtern):
+    # NEUE unverarbeitete Zuhörer-Feedbacks (zu dem obigen Bereich hinzufügen):
     """
     
     for i, feedback in enumerate(feedbacks, 1):
-        prompt += f"\n{i}. {feedback.content}"
+        prompt += f"\n{i}. NEUES FEEDBACK: {feedback.content}"
     
     try:
         response = requests.post(
@@ -284,7 +291,7 @@ def generate_feedback_content(feedbacks, static_info_content, existing_feedback_
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Du bist ein Experte für die Kategorisierung und Strukturierung von Feedback im Markdown-Format. Erstelle klare, strukturierte Feedback-Bereiche und ignoriere unpassende Inhalte komplett."},
+                    {"role": "system", "content": "Du bist Experte für Feedback-Ergänzung. KRITISCH: 1) BESTEHENDEN Feedback-Bereich als BASIS nehmen 2) Nur NEUE Feedbacks ergänzen (nicht überschreiben!) 3) ALLE URLs/Links NUR in '## ⚠️ Ungeprüfte Links' (NIEMALS woanders!) 4) Links einzeln untereinander 5) Bestehende Inhalte NIEMALS löschen"},
                     {"role": "user", "content": prompt}
                 ],
                 "max_tokens": 1500
@@ -618,12 +625,12 @@ def process_feedback_queue():
                                 del feedback_processing_queue[presentation_id]
                         continue
 
-                    # Alle Feedbacks für diese Präsentation abrufen (für Kontext)
-                    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation_id).all()
+                    # Nur unverarbeitete Feedbacks für KI verwenden
+                    # (Bereits verarbeitete sind im existing_feedback_content enthalten)
                     
-                    # Neuen Feedback-Bereich generieren
+                    # Neuen Feedback-Bereich generieren (nur mit neuen Feedbacks)
                     feedback_response = generate_feedback_content(
-                        feedbacks=all_feedbacks,
+                        feedbacks=unprocessed_feedbacks,
                         static_info_content=presentation.static_info_content,
                         existing_feedback_content=presentation.feedback_content
                     )
