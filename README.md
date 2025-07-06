@@ -1,151 +1,249 @@
-# PresentAI - Interaktive KI-gestützte Präsentationsplattform
+# PresentAI - Intelligente Interaktive Präsentationsplattform
 
 ![logo](screen.png)
 
-PresentAI ist eine moderne Webanwendung, die es Präsentatoren ermöglicht, interaktive Präsentationen mit KI-Unterstützung zu erstellen. Die Plattform generiert automatisch informative Inhalte basierend auf dem Kontext und den Hauptinhalten der Präsentation. Zuhörer können über einen einfachen Link oder QR-Code auf die Präsentation zugreifen und in Echtzeit Fragen stellen oder zusätzliche Informationen anfordern, die von der KI verarbeitet und in die Präsentation integriert werden.
+PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsentationen. Die Plattform ermöglicht es Präsentatoren, dynamische Inhalte zu erstellen, die sich automatisch basierend auf Zuhörer-Feedback weiterentwickeln. Mit fortschrittlicher KI-Integration, intelligentem Feedback-Management und robusten Fehlerbehandlungssystemen bietet PresentAI eine nahtlose Erfahrung für moderne Präsentationen.
 
-## Hauptfunktionen
+## 🎯 Hauptfunktionen
 
-- **KI-generierte Inhalte**: Automatische Erstellung von informativen Inhalten basierend auf Ihren Eingaben
-- **Echtzeit-Feedback**: Zuhörer können Fragen stellen und zusätzliche Informationen anfordern
-- **Batch-Verarbeitung**: Effiziente Verarbeitung von Feedback-Anfragen zur Reduzierung der API-Aufrufe
-- **Markdown-Unterstützung**: Formatierte Darstellung von Inhalten mit Überschriften, Listen, Tabellen etc.
-- **Automatische Aktualisierung**: Inhalte werden automatisch aktualisiert, wenn neue Informationen verfügbar sind
+### KI-gestützte Inhaltsgenerierung
+- **Intelligente Feedback-Kategorisierung**: Automatische Unterscheidung zwischen faktischen Informationen, Fragen, Kommentaren und Antworten
+- **Kontextuelle Verarbeitung**: Faktische Infos (Links, URLs) werden direkt in den Haupttext integriert
+- **Strukturierte Antworten**: Fragen werden nur bei 100%iger Sicherheit beantwortet, ansonsten in "Offene Fragen" gesammelt
+- **Automatische Content-Bereinigung**: Entfernung von Markdown-Markierungen für saubere Darstellung
 
-## Systemanforderungen
+### Robuste Fehlerbehandlung
+- **Kontext-Erhaltung**: Bei API-Fehlern bleibt der bestehende Inhalt sichtbar
+- **Intelligente Retry-Mechanismen**: Automatische Wiederholungsversuche mit konfigurierbaren Verzögerungen
+- **Manuelle Retry-Funktion**: Präsentatoren können fehlgeschlagene KI-Aufrufe manuell erneut starten
+- **Transparente Fehlermeldungen**: Klare Kommunikation bei Problemen
+
+### Erweiterte Sicherheit
+- **Content-Filterung**: Automatische Entfernung unangemessener oder beleidigender Inhalte
+- **Soft-Delete System**: Gelöschte Präsentationen bleiben in der Datenbank erhalten
+- **Audit-Trail**: Vollständige Nachverfolgung von Löschungen und Änderungen
+
+### Echtzeit-Interaktion
+- **Batch-Verarbeitung**: Effiziente Verarbeitung von Feedback zur API-Optimierung
+- **Live-Updates**: Automatische Aktualisierung ohne manuelles Neuladen
+- **QR-Code Integration**: Einfacher Zugang für Zuhörer
+
+## 🛠️ Systemanforderungen
+
 - Python 3.8 oder höher
-- Flask 2.0 oder höher
+- Flask 2.0+
 - SQLAlchemy
-- Flask-Login
-- Werkzeug
-- qrcode
-- Pillow (für QR-Code-Generierung)
-- requests (für API-Kommunikation)
-- markdown (für Markdown-Rendering)
-- markupsafe (für sicheres HTML-Rendering)
+- OpenAI API-Zugang (gpt-4o-mini)
+- Weitere Abhängigkeiten siehe `requirements.txt`
 
-## Installation
+## 🚀 Installation
 
-1. Repository klonen oder Dateien herunterladen
-
-2. Virtuelle Umgebung erstellen:
+### 1. Repository vorbereiten
 ```bash
-python -m venv venv
+git clone <repository-url>
+cd ConfChat
 ```
 
-3. Virtuelle Umgebung aktivieren:
-   - Windows: `venv\Scripts\activate`
-   - macOS/Linux: `source venv/bin/activate`
+### 2. Virtuelle Umgebung einrichten
+```bash
+python -m venv venv
 
-4. Abhängigkeiten installieren:
+# Windows
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+```
+
+### 3. Abhängigkeiten installieren
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Umgebungsvariablen setzen:
+### 4. Umgebungsvariablen konfigurieren
 ```bash
-# Windows
-set FLASK_APP=app.py
-set FLASK_ENV=development
-set SECRET_KEY=dein-geheimer-schlüssel
-set OPENAI_API_KEY=dein-openai-api-schlüssel
-set REGISTRATION_PASSWORD=dein-registrierungspasswort
+# Erforderlich
+export OPENAI_API_KEY=ihr-openai-api-schlüssel
 
-# macOS/Linux
-export FLASK_APP=app.py
-export FLASK_ENV=development
-export SECRET_KEY=dein-geheimer-schlüssel
-export OPENAI_API_KEY=dein-openai-api-schlüssel
-export REGISTRATION_PASSWORD=dein-registrierungspasswort
+# Optional (wird automatisch generiert wenn nicht gesetzt)
+export REGISTRATION_PASSWORD=ihr-registrierungspasswort
+export SECRET_KEY=ihr-geheimer-schlüssel
 ```
 
-Hinweis: Wenn kein `REGISTRATION_PASSWORD` gesetzt wird, generiert die Anwendung beim Start automatisch ein zufälliges Passwort und gibt es in der Konsole aus.
+**Wichtig**: Das `REGISTRATION_PASSWORD` wird beim ersten Start automatisch generiert und in der Konsole angezeigt, falls nicht gesetzt.
 
-6. Anwendung starten:
+### 5. Datenbank migrieren (falls erforderlich)
+```bash
+python migrate_db.py
+```
+
+### 6. Anwendung starten
 ```bash
 python app.py
 ```
 
-7. Im Browser öffnen: http://127.0.0.1:5000/
+### 7. Zugriff
+- Hauptanwendung: http://127.0.0.1:5000/
+- H2-Datenbank-Konsole: http://127.0.0.1:5000/h2-console (falls verfügbar)
 
-## Projektstruktur
+## 📁 Projektstruktur
 
 ```
-/
-├── app.py                 # Hauptanwendung
-├── requirements.txt       # Abhängigkeiten
-├── templates/             # HTML-Templates
-│   ├── base.html          # Basis-Template
-│   ├── index.html         # Startseite
-│   ├── login.html         # Login-Seite
-│   ├── register.html      # Registrierungsseite
-│   ├── dashboard.html     # Dashboard-Seite
-│   ├── new_presentation.html    # Neue Präsentation
-│   ├── view_presentation.html   # Präsentation anzeigen
-│   ├── edit_presentation.html   # Präsentation bearbeiten
-│   └── public_view.html         # Öffentliche Ansicht
-├── static/                # Statische Dateien
-└── presentations.db       # SQLite-Datenbank
+ConfChat/
+├── app.py                      # Hauptanwendung (Flask)
+├── migrate_db.py              # Datenbank-Migrierungsskript
+├── requirements.txt           # Python-Abhängigkeiten
+├── CLAUDE.md                  # Entwickler-Dokumentation
+├── instance/
+│   └── presentations.db      # SQLite-Datenbank
+├── templates/                 # Jinja2-Templates
+│   ├── base.html             # Basis-Layout
+│   ├── dashboard.html        # Präsentations-Dashboard
+│   ├── view_presentation.html # Präsentations-Manager
+│   ├── public_view.html      # Öffentliche Zuhörer-Ansicht
+│   └── ...                   # Weitere Templates
+├── static/                    # Statische Dateien
+└── test_*.py                 # Test-Suiten
 ```
 
-## Verwendung
+## 🎭 Verwendung
 
-### Admin-Bereich
-1. Registrieren Sie sich - der erste Benutzer wird automatisch als Admin eingerichtet
-2. Erstellen Sie neue Präsentationen mit Titel, Beschreibung, Kontext und Inhalt
-3. Verwalten Sie bestehende Präsentationen (anzeigen, bearbeiten, löschen)
-4. Teilen Sie den Link oder QR-Code mit Ihrem Publikum
+### Für Präsentatoren
 
-### Zuhörer-Bereich
-1. Zugriff auf die öffentliche Ansicht über den geteilten Link oder QR-Code
-2. Anzeige der KI-generierten Informationen basierend auf der Präsentation
-3. Möglichkeit, Fragen oder zusätzliche Informationen einzugeben
-4. Automatische Aktualisierung der Seite, wenn neue Inhalte verfügbar sind
+1. **Registrierung/Anmeldung**
+   - Erster Benutzer wird automatisch als Admin eingerichtet
+   - Nutzen Sie das generierte Registrierungspasswort
 
-## Leistungsmerkmale
+2. **Präsentation erstellen**
+   - Titel, Beschreibung, Kontext und Hauptinhalt eingeben
+   - KI generiert automatisch strukturierte Inhalte
 
-### KI-Integration
-- Automatische Generierung von Präsentationsinhalten basierend auf Kontext und Inhalt
-- Intelligente Verarbeitung von Zuhörer-Feedback
-- Markdown-Unterstützung für formatierte Inhalte (Überschriften, Listen, Tabellen, etc.)
+3. **Zuhörer einladen**
+   - QR-Code oder direkten Link teilen
+   - Zuhörer erhalten Zugang zur Live-Infoseite
 
-### Optimierte Leistung
-- Batch-Verarbeitung von Feedback-Anfragen zur Reduzierung der API-Aufrufe
-- Caching von KI-generierten Inhalten zur Verbesserung der Ladezeiten
-- Konfigurierbare Client-Aktualisierungsintervalle
+4. **Feedback verwalten**
+   - Überwachung eingehender Fragen und Kommentare
+   - Manuelle Retry-Funktion bei KI-Problemen
+   - Automatische Kategorisierung verschiedener Feedback-Arten
 
-### Benutzerfreundlichkeit
-- Automatische Benachrichtigungen bei Inhaltsänderungen
-- Echtzeit-Aktualisierung der Inhalte ohne manuelles Neuladen
-- Responsive Design für verschiedene Geräte
+### Für Zuhörer
 
-## Konfiguration
+1. **Zugang über QR-Code oder Link**
+2. **Live-Infoseite betrachten**
+   - Automatisch aktualisierte Inhalte
+   - Strukturierte Darstellung mit Markdown-Formatierung
+3. **Interaktion**
+   - Fragen stellen
+   - Zusätzliche Informationen oder Links teilen
+   - Kommentare abgeben
 
-Die Anwendung bietet verschiedene Konfigurationsoptionen in app.py:
+## ⚙️ Erweiterte Konfiguration
 
-- `FEEDBACK_PROCESSING_INTERVAL`: Zeit in Sekunden zwischen Feedback-Verarbeitungen (Standard: 30)
-- `FEEDBACK_BATCH_WINDOW`: Zeitfenster in Sekunden, in dem Feedback gesammelt wird (Standard: 30)
-- `CLIENT_REFRESH_INTERVAL`: Zeit in Sekunden zwischen Client-Aktualisierungen (Standard: 20)
+### Feedback-Verarbeitung
+```python
+# In app.py anpassbar
+FEEDBACK_PROCESSING_INTERVAL = 30  # Sekunden zwischen Verarbeitungen
+FEEDBACK_BATCH_WINDOW = 30         # Sammelzeit für Batch-Processing
+CLIENT_REFRESH_INTERVAL = 20       # Client-Aktualisierungsintervall
+```
 
-## KI-Integration
+### Retry-Mechanismen
+- **Automatische Verzögerung**: 10 Sekunden nach API-Fehlern
+- **Kontext-Erhaltung**: Bestehende Inhalte bleiben bei Fehlern sichtbar
+- **Manuelle Kontrolle**: Retry-Button für Präsentatoren
 
-Die Anwendung nutzt OpenAI's GPT-4 für die KI-Funktionalität. Wenn Sie keinen OpenAI API-Schlüssel haben, können Sie folgende Optionen nutzen:
+### Content-Filterung
+- **Blacklist-basiert**: Automatische Entfernung unangemessener Begriffe
+- **Kategorisierung**: Links, Fragen, Kommentare werden intelligent sortiert
+- **Markdown-Bereinigung**: Entfernung störender Code-Block-Markierungen
 
-1. Beantragen Sie einen API-Schlüssel bei OpenAI: https://openai.com/api/
-2. Verwenden Sie alternative KI-Dienste wie:
-   - Hugging Face API
-   - Google Gemini API
-   - Claude (Anthropic) API
+## 🔧 Entwicklung & Erweiterung
 
-Ändern Sie dafür die `generate_ai_content`-Funktion in app.py entsprechend.
+### Wichtige Komponenten
 
-## Anpassung und Erweiterung
+1. **KI-Integration** (`generate_ai_content()`)
+   - Feedback-Kategorisierung
+   - Prompt-Engineering für verschiedene Content-Typen
+   - Fehlerbehandlung und Retry-Logik
 
-### Design anpassen
-- Bearbeiten Sie base.html und die CSS-Stile nach Ihren Wünschen
+2. **Soft-Delete System**
+   - Präsentationen werden als gelöscht markiert, bleiben aber in DB
+   - Vollständiger Audit-Trail
+   - Wiederherstellbarkeit
 
-### Funktionalität erweitern
-- Fügen Sie weitere KI-Funktionen hinzu, z.B. Zusammenfassungen oder Übersetzungen
-- Implementieren Sie Datei-Uploads für Präsentationen
-- Erstellen Sie eine Echtzeit-Chat-Funktion mit WebSockets
-- Fügen Sie erweiterte Benutzerverwaltung und Berechtigungen hinzu
+3. **Background Processing**
+   - Thread-basierte Feedback-Verarbeitung
+   - Intelligente Warteschlangen-Verwaltung
+   - Retry-Verzögerungen respektieren
+
+### Tests ausführen
+```bash
+# Einzelne Tests
+python test_improved_prompt.py
+python test_soft_delete.py
+python test_markdown_filter.py
+
+# Alle Tests
+python -m pytest test_*.py
+```
+
+### Demo-Skripte
+```bash
+python demo_improved_prompt.py    # Feedback-Kategorisierung
+python demo_soft_delete.py        # Soft-Delete Verhalten
+python demo_improved_behavior.py  # Fehlerbehandlung
+```
+
+## 🎨 Anpassungen
+
+### KI-Provider wechseln
+Die Anwendung kann einfach für andere KI-APIs angepasst werden:
+- OpenAI GPT-4o-mini (Standard)
+- Claude (Anthropic)
+- Google Gemini
+- Hugging Face
+
+### UI-Anpassungen
+- Templates in `templates/` Verzeichnis
+- Bootstrap 4 für responsives Design
+- Erweiterbare CSS-Klassen
+
+### Funktionalitäts-Erweiterungen
+- WebSocket-Integration für Echtzeit-Chat
+- Datei-Upload für Präsentationen
+- Erweiterte Benutzerverwaltung
+- Export-Funktionen (PDF, Word)
+
+## 🛡️ Sicherheit
+
+- **Eingabe-Validierung**: Schutz vor Injection-Angriffen
+- **Content-Filterung**: Automatische Moderation
+- **Session-Management**: Sichere Benutzer-Sessions
+- **API-Schlüssel-Schutz**: Umgebungsvariablen für sensible Daten
+
+## 📊 Monitoring & Debugging
+
+- **Konsolen-Logging**: Detaillierte Logs für Debugging
+- **Error-Tracking**: Vollständige Fehlerprotokollierung
+- **Performance-Monitoring**: API-Aufruf-Optimierung
+- **Audit-Trail**: Benutzeraktivitäten nachverfolgbar
+
+## 🤝 Contributing
+
+1. Fork des Repositories
+2. Feature-Branch erstellen (`git checkout -b feature/AmazingFeature`)
+3. Änderungen committen (`git commit -m 'Add some AmazingFeature'`)
+4. Branch pushen (`git push origin feature/AmazingFeature`)
+5. Pull Request erstellen
+
+## 📝 Lizenz
+
+Dieses Projekt steht unter der MIT-Lizenz. Siehe `LICENSE` Datei für Details.
+
+## 🙏 Danksagungen
+
+- OpenAI für GPT-4o-mini API
+- Flask-Community für das excellente Framework
+- Bootstrap für das responsive UI-Framework
+- Alle Contributor und Tester
