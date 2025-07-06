@@ -2,15 +2,22 @@
 
 ![logo](screen.png)
 
-PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsentationen. Die Plattform ermöglicht es Präsentatoren, dynamische Inhalte zu erstellen, die sich automatisch basierend auf Zuhörer-Feedback weiterentwickeln. Mit fortschrittlicher KI-Integration, intelligentem Feedback-Management und robusten Fehlerbehandlungssystemen bietet PresentAI eine nahtlose Erfahrung für moderne Präsentationen.
+PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsentationen mit innovativer **geteilter Architektur**. Die Plattform erstellt statische Info-Seiten vom Präsentator und dynamische Feedback-Bereiche von Zuhörern - vollständig getrennt und intelligent verwaltet. Mit fortschrittlicher KI-Integration, festen Verarbeitungsintervallen und kompakter Feedback-Darstellung bietet PresentAI eine nahtlose Erfahrung für moderne Präsentationen.
 
 ## 🎯 Hauptfunktionen
 
+### Innovative Geteilte Architektur
+- **Statische Info-Seite**: Einmalig generiert aus Titel, Beschreibung und Abstract - bleibt unverändert
+- **Dynamischer Feedback-Bereich**: Separate Sektion für Zuhörer-Feedback mit automatischer Kategorisierung
+- **Klare Trennung**: Info-Inhalte und Feedback-Inhalte sind vollständig getrennt
+- **Ergänzungs-System**: Neue Feedbacks werden intelligent zu bestehenden Inhalten hinzugefügt
+
 ### KI-gestützte Inhaltsgenerierung
-- **Intelligente Feedback-Kategorisierung**: Automatische Unterscheidung zwischen faktischen Informationen, Fragen, Kommentaren und Antworten
-- **Kontextuelle Verarbeitung**: Faktische Infos (Links, URLs) werden direkt in den Haupttext integriert
-- **Strukturierte Antworten**: Fragen werden nur bei 100%iger Sicherheit beantwortet, ansonsten in "Offene Fragen" gesammelt
-- **Automatische Content-Bereinigung**: Entfernung von Markdown-Markierungen für saubere Darstellung
+- **Vollautomatische Kategorisierung**: KI übernimmt komplette Feedback-Klassifizierung ohne Code-Regeln
+- **Intelligente Zusammenfassung**: Ähnliche Fragen/Kommentare werden automatisch gruppiert
+- **Sichere Link-Behandlung**: ALLE URLs landen in separater "⚠️ Ungeprüfte Links" Sektion mit Beschreibungen
+- **Flexible KI-Modelle**: Unterstützung für GPT-4, GPT-4.1-mini und andere Modelle
+- **Automatische Content-Bereinigung**: Markdown-Optimierung für saubere Darstellung
 
 ### Robuste Fehlerbehandlung
 - **Kontext-Erhaltung**: Bei API-Fehlern bleibt der bestehende Inhalt sichtbar
@@ -24,16 +31,21 @@ PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsent
 - **Audit-Trail**: Vollständige Nachverfolgung von Löschungen und Änderungen
 
 ### Echtzeit-Interaktion
-- **Batch-Verarbeitung**: Effiziente Verarbeitung von Feedback zur API-Optimierung
+- **Feste Verarbeitungsintervalle**: Garantierte Verarbeitung alle 30 Sekunden (konfigurierbar)
+- **Nie verzögerte Verarbeitung**: Auch bei Dauerfeuer-Feedback erfolgt pünktliche Verarbeitung
+- **Kompakte Feedback-Anzeige**: Status-Symbole (✅ verarbeitet, ⏳ wartend) für bessere Übersicht
+- **Batch-Verarbeitung**: Effiziente Sammlung mehrerer Feedbacks pro Intervall
 - **Live-Updates**: Automatische Aktualisierung ohne manuelles Neuladen
 - **QR-Code Integration**: Einfacher Zugang für Zuhörer
+- **Teilnehmer-Namen**: Optionale Namenserfassung mit localStorage für wiederholte Nutzung
 
 ## 🛠️ Systemanforderungen
 
 - Python 3.8 oder höher
 - Flask 2.0+
 - SQLAlchemy
-- OpenAI API-Zugang (gpt-4o-mini)
+- OpenAI API-Zugang (GPT-4, GPT-4.1-mini, oder GPT-4o-mini)
+- Font Awesome 6.0+ für Status-Icons
 - Weitere Abhängigkeiten siehe `requirements.txt`
 
 ## 🚀 Installation
@@ -116,26 +128,34 @@ ConfChat/
 
 2. **Präsentation erstellen**
    - Titel, Beschreibung, Kontext und Hauptinhalt eingeben
-   - KI generiert automatisch strukturierte Inhalte
+   - KI generiert automatisch statische Info-Seite (einmalig)
 
 3. **Zuhörer einladen**
    - QR-Code oder direkten Link teilen
    - Zuhörer erhalten Zugang zur Live-Infoseite
 
 4. **Feedback verwalten**
-   - Überwachung eingehender Fragen und Kommentare
+   - Kompakte Übersicht mit Status-Symbolen (✅ verarbeitet, ⏳ wartend)
+   - Teilnehmer-Namen werden angezeigt falls angegeben
+   - Automatische Verarbeitung alle 30 Sekunden (garantiert)
    - Manuelle Retry-Funktion bei KI-Problemen
-   - Automatische Kategorisierung verschiedener Feedback-Arten
+   - Vollautomatische KI-Kategorisierung ohne manuelle Regeln
 
 ### Für Zuhörer
 
 1. **Zugang über QR-Code oder Link**
-2. **Live-Infoseite betrachten**
-   - Automatisch aktualisierte Inhalte
+2. **Namen eingeben (einmalig)**
+   - Name wird im Browser gespeichert für zukünftige Feedbacks
+   - Erscheint in der Presenter-Ansicht für bessere Zuordnung
+3. **Live-Infoseite betrachten**
+   - Statische Info-Seite vom Präsentator
+   - Dynamischer Feedback-Bereich von anderen Zuhörern
+   - Automatisch aktualisierte Inhalte alle 20 Sekunden
    - Strukturierte Darstellung mit Markdown-Formatierung
-3. **Interaktion**
-   - Fragen stellen
-   - Zusätzliche Informationen oder Links teilen
+4. **Interaktion**
+   - Fragen stellen (landen in "Offene Fragen")
+   - Links teilen (erscheinen in "⚠️ Ungeprüfte Links" mit Beschreibung)
+   - Faktische Informationen beitragen
    - Kommentare abgeben
 
 ## ⚙️ Erweiterte Konfiguration
@@ -143,39 +163,48 @@ ConfChat/
 ### Feedback-Verarbeitung
 ```python
 # In app.py anpassbar
-FEEDBACK_PROCESSING_INTERVAL = 30  # Sekunden zwischen Verarbeitungen
-FEEDBACK_BATCH_WINDOW = 30         # Sammelzeit für Batch-Processing
+FEEDBACK_PROCESSING_INTERVAL = 30  # Feste Verarbeitungsintervalle (Sekunden)
 CLIENT_REFRESH_INTERVAL = 20       # Client-Aktualisierungsintervall
 ```
+
+**Neue Architektur**:
+- **Feste Zeitslots**: Verarbeitung erfolgt zu festen Zeiten (z.B. :00, :30 jeder Minute)
+- **Garantierte Verarbeitung**: Auch bei kontinuierlichem Feedback wird pünktlich verarbeitet
+- **Kein Verschieben**: Neue Feedbacks verschieben die Verarbeitung nicht
 
 ### Retry-Mechanismen
 - **Automatische Verzögerung**: 10 Sekunden nach API-Fehlern
 - **Kontext-Erhaltung**: Bestehende Inhalte bleiben bei Fehlern sichtbar
 - **Manuelle Kontrolle**: Retry-Button für Präsentatoren
 
-### Content-Filterung
-- **Blacklist-basiert**: Automatische Entfernung unangemessener Begriffe
-- **Kategorisierung**: Links, Fragen, Kommentare werden intelligent sortiert
+### Content-Filterung & KI-Integration
+- **Vollautomatische Filterung**: KI übernimmt komplette Spam/Beleidigung-Erkennung
+- **Intelligente Kategorisierung**: Fragen, Links, Fakten, Kommentare werden automatisch sortiert
+- **Sichere Link-Behandlung**: Alle URLs landen zwingend in "⚠️ Ungeprüfte Links" Sektion
+- **Zusammenfassung**: Ähnliche Feedbacks werden intelligent gruppiert
 - **Markdown-Bereinigung**: Entfernung störender Code-Block-Markierungen
+- **Flexible KI-Modelle**: GPT-4, GPT-4.1-mini, GPT-4o-mini unterstützt
 
 ## 🔧 Entwicklung & Erweiterung
 
 ### Wichtige Komponenten
 
-1. **KI-Integration** (`generate_ai_content()`)
-   - Feedback-Kategorisierung
-   - Prompt-Engineering für verschiedene Content-Typen
-   - Fehlerbehandlung und Retry-Logik
+1. **Geteilte KI-Integration**
+   - `generate_static_info_content()`: Einmalige Info-Seiten-Generierung
+   - `generate_feedback_content()`: Dynamische Feedback-Verarbeitung
+   - Vollautomatische KI-Kategorisierung ohne Code-Regeln
+   - Ergänzungs-System statt Neugenerierung
 
-2. **Soft-Delete System**
-   - Präsentationen werden als gelöscht markiert, bleiben aber in DB
-   - Vollständiger Audit-Trail
-   - Wiederherstellbarkeit
-
-3. **Background Processing**
-   - Thread-basierte Feedback-Verarbeitung
+2. **Feste Intervall-Verarbeitung**
+   - Zeitslot-basierte Verarbeitung (z.B. alle 30 Sekunden)
+   - Garantierte Pünktlichkeit auch bei Dauerfeuer-Feedback
+   - Thread-basierte Background-Verarbeitung
    - Intelligente Warteschlangen-Verwaltung
-   - Retry-Verzögerungen respektieren
+
+3. **Soft-Delete System**
+   - Präsentationen werden als gelöscht markiert, bleiben aber in DB
+   - Vollständiger Audit-Trail mit Teilnehmer-Namen
+   - Wiederherstellbarkeit
 
 ### Tests ausführen
 ```bash
@@ -198,15 +227,20 @@ python demo_improved_behavior.py  # Fehlerbehandlung
 ## 🎨 Anpassungen
 
 ### KI-Provider wechseln
-Die Anwendung kann einfach für andere KI-APIs angepasst werden:
-- OpenAI GPT-4o-mini (Standard)
-- Claude (Anthropic)
-- Google Gemini
-- Hugging Face
+Die Anwendung unterstützt verschiedene KI-APIs:
+- **OpenAI GPT-4** (beste Qualität)
+- **OpenAI GPT-4.1-mini** (optimiert)
+- **OpenAI GPT-4o-mini** (kostengünstig)
+- **Claude** (Anthropic) - anpassbar
+- **Google Gemini** - anpassbar
+- **Hugging Face** - anpassbar
+
+Einfach das `model`-Feld in den API-Aufrufen ändern.
 
 ### UI-Anpassungen
 - Templates in `templates/` Verzeichnis
-- Bootstrap 4 für responsives Design
+- Bootstrap 4 + Font Awesome 6 für responsives Design
+- Kompakte Feedback-Anzeige mit Status-Symbolen
 - Erweiterbare CSS-Klassen
 
 ### Funktionalitäts-Erweiterungen
