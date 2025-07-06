@@ -11,6 +11,8 @@ PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsent
 - **Dynamischer Feedback-Bereich**: Separate Sektion für Zuhörer-Feedback mit automatischer Kategorisierung
 - **Klare Trennung**: Info-Inhalte und Feedback-Inhalte sind vollständig getrennt
 - **Ergänzungs-System**: Neue Feedbacks werden intelligent zu bestehenden Inhalten hinzugefügt
+- **Zusätzliche Informationen**: Präsentierende können jederzeit zusätzliche Infos (z.B. Antworten auf Fragen) hinzufügen
+- **Live-Info-Freigabe**: Kontrollierte Sichtbarkeit der Live-Infoseite für Zuhörer
 
 ### KI-gestützte Inhaltsgenerierung
 - **Vollautomatische Kategorisierung**: KI übernimmt komplette Feedback-Klassifizierung ohne Code-Regeln
@@ -38,6 +40,12 @@ PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsent
 - **Live-Updates**: Automatische Aktualisierung ohne manuelles Neuladen
 - **QR-Code Integration**: Einfacher Zugang für Zuhörer
 - **Teilnehmer-Namen**: Optionale Namenserfassung mit localStorage für wiederholte Nutzung
+
+### Erweiterte Präsentator-Kontrolle
+- **Einzelnes Feedback löschen**: Unerwünschte Feedbacks direkt aus der Liste entfernen
+- **Feedback-Verarbeitung zurücksetzen**: Alle verarbeiteten Feedbacks wieder auf wartend stellen
+- **Zusätzliche Informationen**: Jederzeit neue Infos zum statischen Bereich hinzufügen
+- **Live-Info-Freigabe**: Ein/Ausblenden der Live-Infoseite für Zuhörer per Knopfdruck
 
 ## 🛠️ Systemanforderungen
 
@@ -140,6 +148,18 @@ ConfChat/
    - Automatische Verarbeitung alle 30 Sekunden (garantiert)
    - Manuelle Retry-Funktion bei KI-Problemen
    - Vollautomatische KI-Kategorisierung ohne manuelle Regeln
+   - **Einzelne Feedbacks löschen**: Unerwünschte Beiträge direkt entfernen
+   - **Feedback-Reset**: Alle Feedbacks wieder auf wartend stellen
+
+5. **Zusätzliche Informationen verwalten**
+   - Neue Informationen jederzeit zum statischen Bereich hinzufügen
+   - Automatische Integration in die Live-Infoseite
+   - Zeitstempel für bessere Nachverfolgung
+
+6. **Live-Info-Freigabe kontrollieren**
+   - Per Default ausgeblendet für Zuhörer
+   - Ein-Klick-Freigabe für Live-Infoseite
+   - Sofortige Sichtbarkeit/Verbergung für alle Zuhörer
 
 ### Für Zuhörer
 
@@ -147,11 +167,13 @@ ConfChat/
 2. **Namen eingeben (einmalig)**
    - Name wird im Browser gespeichert für zukünftige Feedbacks
    - Erscheint in der Presenter-Ansicht für bessere Zuordnung
-3. **Live-Infoseite betrachten**
+3. **Live-Infoseite betrachten** (nur wenn freigegeben)
    - Statische Info-Seite vom Präsentator
+   - Zusätzliche Informationen vom Präsentator
    - Dynamischer Feedback-Bereich von anderen Zuhörern
-   - Automatisch aktualisierte Inhalte alle 20 Sekunden
+   - Automatisch aktualisierte Inhalte alle 10 Sekunden
    - Strukturierte Darstellung mit Markdown-Formatierung
+   - Nur sichtbar wenn Präsentator die Live-Info freigegeben hat
 4. **Interaktion**
    - Fragen stellen (landen in "Offene Fragen")
    - Links teilen (erscheinen in "⚠️ Ungeprüfte Links" mit Beschreibung)
