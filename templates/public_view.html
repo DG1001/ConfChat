@@ -13,13 +13,6 @@
                         <p class="lead">{{ presentation.description }}</p>
                     </div>
                     
-                    <div class="ai-content mb-4">
-                        <h3>KI-generierte Informationen:</h3>
-                        <div class="ai-container p-3 bg-light rounded">
-                            {{ ai_content_html|safe }}
-                        </div>
-                    </div>
-                    
                     <div class="feedback-section">
                         <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
                         <form id="feedbackForm" class="mb-3">
@@ -29,15 +22,8 @@
                             </div>
                             <button type="submit" class="btn btn-primary mt-2">Absenden</button>
                         </form>
-                    </div>
-                    
-                    <!-- Feedback-Verarbeitungshinweis -->
-                    <div id="processingIndicator" class="alert alert-info d-none mt-3">
-                        <div class="d-flex align-items-center">
-                            <div class="spinner-border spinner-border-sm mr-2" role="status">
-                                <span class="sr-only">Verarbeite...</span>
-                            </div>
-                            <span>Ihr Feedback wird verarbeitet. Die Seite wird automatisch aktualisiert, sobald neue Informationen verfügbar sind.</span>
+                        <div id="feedback-success" class="alert alert-success d-none mt-3">
+                            Ihr Feedback wurde erfolgreich übermittelt.
                         </div>
                     </div>
                 </div>
@@ -47,92 +33,17 @@
 </div>
 
 <script>
-// Globale Variable für den Aktualisierungstimer
-let contentUpdateTimer = null;
-let lastContentHash = null;
-
-// Funktion zum Berechnen eines einfachen Hashes für den Inhalt
-function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return hash;
-}
-
-// Funktion zum Prüfen des Verarbeitungsstatus
-function checkProcessingStatus() {
-    fetch('/p/{{ presentation.access_code }}')
-        .then(response => response.text())
-        .then(html => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newContent = doc.querySelector('.ai-container').innerHTML;
-            const newContentHash = simpleHash(newContent);
-            
-            // Nur aktualisieren, wenn sich der Inhalt geändert hat
-            if (newContentHash !== lastContentHash) {
-                console.log("Neuer Inhalt erkannt, aktualisiere Seite...");
-                // Aktualisiere die Hauptinhaltsseite mit dem neuen KI-Inhalt
-                document.querySelector('.ai-container').innerHTML = newContent;
-                lastContentHash = newContentHash;
-                
-                // Verarbeitungsindikator ausblenden
-                document.getElementById('processingIndicator').classList.add('d-none');
-                
-                // Kurze Hervorhebung des aktualisierten Inhalts
-                const aiContainer = document.querySelector('.ai-container');
-                aiContainer.style.transition = 'background-color 1s';
-                aiContainer.style.backgroundColor = '#e6f7ff';
-                setTimeout(() => {
-                    aiContainer.style.backgroundColor = '';
-                }, 2000);
-                
-                // Benachrichtigung anzeigen
-                if ("Notification" in window && Notification.permission === "granted") {
-                    new Notification("Inhalt aktualisiert", {
-                        body: "Die Seite wurde mit neuen Informationen aktualisiert."
-                    });
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Fehler beim Aktualisieren des Inhalts:', error);
-        });
-}
-
-// Beim Laden der Seite den aktuellen Inhalt-Hash speichern und Benachrichtigungen anfordern
-document.addEventListener('DOMContentLoaded', function() {
-    const currentContent = document.querySelector('.ai-container').innerHTML;
-    lastContentHash = simpleHash(currentContent);
-    
-    // Benachrichtigungen anfordern
-    if ("Notification" in window && Notification.permission !== "denied") {
-        Notification.requestPermission();
-    }
-    
-    // Regelmäßige Aktualisierung starten
-    setInterval(checkProcessingStatus, {{ config.CLIENT_REFRESH_INTERVAL * 1000 }});
-});
-
 document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const feedbackContent = document.getElementById('feedbackContent').value;
     if (!feedbackContent.trim()) return;
     
-    // Feedback-Button deaktivieren und Ladeindikator anzeigen
     const submitButton = this.querySelector('button[type="submit"]');
     const originalButtonText = submitButton.innerHTML;
     submitButton.disabled = true;
-    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verarbeite...';
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sende...';
     
-    // Verarbeitungsindikator anzeigen
-    document.getElementById('processingIndicator').classList.remove('d-none');
-    
-    // Feedback senden
     fetch('/p/{{ presentation.access_code }}/feedback', {
         method: 'POST',
         headers: {
@@ -143,32 +54,12 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Formular zurücksetzen
             document.getElementById('feedbackContent').value = '';
-            
-            // Wenn die Verarbeitung im Hintergrund läuft, Timer für regelmäßige Aktualisierungen starten
-            if (data.processing) {
-                // Bestehenden Timer löschen, falls vorhanden
-                if (contentUpdateTimer) {
-                    clearInterval(contentUpdateTimer);
-                }
-                
-                // Sofort prüfen
-                checkProcessingStatus();
-                
-                // Neuen Timer starten, der alle {{ config.CLIENT_REFRESH_INTERVAL }} Sekunden den Inhalt aktualisiert
-                contentUpdateTimer = setInterval(checkProcessingStatus, {{ config.CLIENT_REFRESH_INTERVAL * 1000 }});
-                
-                // Nach 120 Sekunden den Timer stoppen (nach der maximalen Verarbeitungszeit)
-                setTimeout(() => {
-                    if (contentUpdateTimer) {
-                        clearInterval(contentUpdateTimer);
-                        contentUpdateTimer = null;
-                        // Verarbeitungsindikator ausblenden, falls noch sichtbar
-                        document.getElementById('processingIndicator').classList.add('d-none');
-                    }
-                }, 120000);
-            }
+            const successAlert = document.getElementById('feedback-success');
+            successAlert.classList.remove('d-none');
+            setTimeout(() => {
+                successAlert.classList.add('d-none');
+            }, 3000);
         }
     })
     .catch(error => {
@@ -176,7 +67,6 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
         alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.');
     })
     .finally(() => {
-        // Feedback-Button wieder aktivieren
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
     });

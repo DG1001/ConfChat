@@ -66,6 +66,23 @@
                 </div>
             </div>
             
+            <!-- KI-Inhalts-Bereich -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Live-Infoseite (automatische Aktualisierung)</h3>
+                </div>
+                <div class="card-body">
+                    <div id="aiContentContainer" class="markdown-content">
+                        <!-- AI-Inhalt wird hier geladen -->
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Lade...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Feedback-Bereich -->
             <div class="card">
                 <div class="card-header bg-info text-white">
@@ -127,7 +144,6 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 function copyLink() {
     const urlInput = document.getElementById('presentationUrl');
@@ -136,13 +152,30 @@ function copyLink() {
     alert('Link kopiert!');
 }
 
+// Funktion zum Abrufen und Anzeigen des KI-Inhalts
+function updateAiContent() {
+    fetch('/api/presentation/{{ presentation.id }}/ai_content')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('aiContentContainer').innerHTML = data.html;
+            } else {
+                document.getElementById('aiContentContainer').innerHTML = '<div class="alert alert-danger">Fehler beim Laden des Inhalts.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Aktualisieren des KI-Inhalts:', error);
+            document.getElementById('aiContentContainer').innerHTML = '<div class="alert alert-danger">Fehler beim Laden des Inhalts.</div>';
+        });
+}
+
 // Feedbacks regelmäßig aktualisieren
 function updateFeedbacks() {
     fetch('/api/feedbacks/{{ presentation.id }}')
         .then(response => response.json())
         .then(feedbacks => {
+            const container = document.getElementById('feedbackContainer');
             if (feedbacks.length > 0) {
-                const container = document.getElementById('feedbackContainer');
                 let feedbackHTML = '';
                 
                 feedbacks.forEach(feedback => {
@@ -175,10 +208,8 @@ function updateFeedbacks() {
                 });
                 
                 container.innerHTML = feedbackHTML;
-                
-                // Keine Markdown-Rendering für einzelne Feedbacks mehr nötig
             } else {
-                document.getElementById('feedbackContainer').innerHTML = `
+                container.innerHTML = `
                     <div class="alert alert-info">
                         Noch keine Feedbacks vorhanden.
                     </div>
@@ -188,8 +219,15 @@ function updateFeedbacks() {
         .catch(error => console.error('Fehler beim Aktualisieren der Feedbacks:', error));
 }
 
-// Alle 10 Sekunden aktualisieren
-setInterval(updateFeedbacks, 10000);
+document.addEventListener('DOMContentLoaded', function() {
+    // Initiales Laden
+    updateAiContent();
+    updateFeedbacks();
+
+    // Regelmäßige Aktualisierung starten
+    setInterval(updateAiContent, 5000); // Alle 5 Sekunden
+    setInterval(updateFeedbacks, 10000); // Alle 10 Sekunden
+});
 </script>
 <style>
 .markdown-content h1, .markdown-content h2, .markdown-content h3, 

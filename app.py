@@ -96,26 +96,40 @@ def markdown_to_html(text):
     return Markup(markdown.markdown(text, extensions=['tables']))
 
 # KI-Integration
-def generate_ai_content(context, content, feedbacks=None):
-    """Generiert KI-basierte Inhalte basierend auf dem Kontext, Inhalt und allen Feedbacks"""
+def generate_ai_content(context, content, feedbacks=None, previous_content=None):
+    """Generiert oder aktualisiert KI-basierte Inhalte."""
     
-    # Prompt für die KI erstellen
-    prompt = f"""
-    Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
-    
-    # Kontext der Präsentation
-    {context}
-    
-    # Hauptinhalt der Präsentation
-    {content}
-    """
-    
-    if feedbacks:
-        prompt += "\n\n# Feedback und Fragen der Zuhörer\n"
+    if previous_content:
+        # Inkrementelles Update
+        prompt = f"""
+        Aktualisiere die folgende Infoseite im Markdown-Format mit den neuen Feedbacks und Fragen der Zuhörer.
+        Integriere die neuen Informationen nahtlos und logisch in die bestehende Struktur.
+        Gib nur die VOLLSTÄNDIGE, aktualisierte Infoseite zurück.
+
+        # Bestehende Infoseite
+        {previous_content}
+
+        # Neue Feedbacks und Fragen
+        """
         for feedback in feedbacks:
             prompt += f"- {feedback.content}\n"
+    else:
+        # Ersterstellung
+        prompt = f"""
+        Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
         
-        prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
+        # Kontext der Präsentation
+        {context}
+        
+        # Hauptinhalt der Präsentation
+        {content}
+        """
+        if feedbacks:
+            prompt += "\n\n# Feedback und Fragen der Zuhörer\n"
+            for feedback in feedbacks:
+                prompt += f"- {feedback.content}\n"
+            prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
+
     
     # OpenAI-API-Anfrage
     try:
@@ -311,8 +325,8 @@ def public_view(access_code):
     if presentation.cached_ai_content:
         ai_content = presentation.cached_ai_content
     else:
-        # KI-Inhalte generieren mit allen Feedbacks
-        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks)
+        # KI-Inhalte generieren (initial)
+        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks, None)
         
         # Cache aktualisieren
         presentation.cached_ai_content = ai_content
@@ -366,16 +380,25 @@ def process_feedback_queue():
                                 del feedback_processing_queue[presentation_id]
                         continue
                     
-                    all_feedbacks = Feedback.query.filter_by(presentation_id=presentation_id).all()
-                    
-                    # KI-Antwort mit allen Feedbacks generieren
-                    ai_response = generate_ai_content(presentation.context, presentation.content, all_feedbacks)
-                    
-                    # Unverarbeitete Feedbacks aktualisieren
+                    # Unverarbeitete Feedbacks abrufen
                     unprocessed_feedbacks = Feedback.query.filter_by(
                         presentation_id=presentation_id, 
                         is_processed=False
                     ).all()
+
+                    if not unprocessed_feedbacks:
+                        with processing_lock:
+                            if presentation_id in feedback_processing_queue:
+                                del feedback_processing_queue[presentation_id]
+                        continue
+
+                    # KI-Antwort generieren (inkrementell)
+                    ai_response = generate_ai_content(
+                        presentation.context, 
+                        presentation.content, 
+                        unprocessed_feedbacks, 
+                        presentation.cached_ai_content
+                    )
                     
                     for feedback in unprocessed_feedbacks:
                         feedback.ai_response = ai_response
@@ -455,6 +478,36 @@ def submit_feedback(access_code):
         'ai_response_html': temp_response_html,
         'processing': True
     })
+
+@app.route('/api/presentation/<int:id>/ai_content', methods=['GET'])
+@login_required
+def api_get_ai_content(id):
+    presentation = Presentation.query.get_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    # Alle Feedbacks für diese Präsentation abrufen
+    feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
+
+    # Prüfen, ob wir bereits einen gecachten KI-Inhalt haben
+    if presentation.cached_ai_content:
+        ai_content = presentation.cached_ai_content
+    else:
+        # KI-Inhalte generieren (initial)
+        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks, None)
+        
+        # Cache aktualisieren
+        presentation.cached_ai_content = ai_content
+        presentation.last_updated = datetime.utcnow()
+        db.session.commit()
+
+    # Markdown zu HTML konvertieren
+    ai_content_html = markdown_to_html(ai_content)
+
+    return jsonify({'success': True, 'html': ai_content_html})
+
 
 @app.route('/api/feedbacks/<int:presentation_id>', methods=['GET'])
 def api_get_feedbacks(presentation_id):
