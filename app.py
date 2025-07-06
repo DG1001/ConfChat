@@ -96,11 +96,25 @@ def markdown_to_html(text):
     return Markup(markdown.markdown(text, extensions=['tables']))
 
 # KI-Integration
-def generate_ai_content(context, content, feedbacks=None, previous_content=None):
+def generate_ai_content(feedbacks, previous_content=None, context=None, content=None):
     """Generiert oder aktualisiert KI-basierte Inhalte."""
+    print("\n--- KI-Aufruf ---")
+    if previous_content:
+        print("Bestehender Kontext wird verwendet: Ja")
+    else:
+        print("Bestehender Kontext wird verwendet: Nein")
+
+    if feedbacks:
+        print(f"Anzahl der Feedbacks: {len(feedbacks)}")
+    else:
+        print("Anzahl der Feedbacks: 0")
+    print("------------------\n")
     
     if previous_content:
         # Inkrementelles Update
+        if not feedbacks:
+            return previous_content
+        
         prompt = f"""
         Aktualisiere die folgende Infoseite im Markdown-Format mit den neuen Feedbacks und Fragen der Zuhörer.
         Integriere die neuen Informationen nahtlos und logisch in die bestehende Struktur.
@@ -113,8 +127,12 @@ def generate_ai_content(context, content, feedbacks=None, previous_content=None)
         """
         for feedback in feedbacks:
             prompt += f"- {feedback.content}\n"
+    
     else:
         # Ersterstellung
+        if not context or not content:
+            return "## Fehler\nKontext und Inhalt für die Ersterstellung erforderlich."
+        
         prompt = f"""
         Erstelle eine gut strukturierte Infoseite im Markdown-Format basierend auf dem Kontext und Hauptinhalt der Präsentation.
         
@@ -129,6 +147,7 @@ def generate_ai_content(context, content, feedbacks=None, previous_content=None)
             for feedback in feedbacks:
                 prompt += f"- {feedback.content}\n"
             prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
+
 
     
     # OpenAI-API-Anfrage
@@ -149,6 +168,9 @@ def generate_ai_content(context, content, feedbacks=None, previous_content=None)
             }
         )
         response_data = response.json()
+        if 'choices' not in response_data:
+            print(f"Fehler bei der KI-Anfrage: Unerwartete Antwort: {response_data}")
+            return "## Fehler\nEs ist ein Fehler bei der Generierung des KI-Inhalts aufgetreten."
         return response_data['choices'][0]['message']['content']
     except Exception as e:
         print(f"Fehler bei der KI-Anfrage: {e}")
@@ -318,24 +340,6 @@ def delete_presentation(id):
 def public_view(access_code):
     presentation = Presentation.query.filter_by(access_code=access_code).first_or_404()
     
-    # Alle Feedbacks für diese Präsentation abrufen
-    feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
-    
-    # Prüfen, ob wir bereits einen gecachten KI-Inhalt haben
-    if presentation.cached_ai_content:
-        ai_content = presentation.cached_ai_content
-    else:
-        # KI-Inhalte generieren (initial)
-        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks, None)
-        
-        # Cache aktualisieren
-        presentation.cached_ai_content = ai_content
-        presentation.last_updated = datetime.utcnow()
-        db.session.commit()
-    
-    # Markdown zu HTML konvertieren
-    ai_content_html = markdown_to_html(ai_content)
-    
     # Status der Verarbeitung
     processing_status = {
         'scheduled': presentation.processing_scheduled,
@@ -343,7 +347,6 @@ def public_view(access_code):
     }
     
     return render_template('public_view.html', presentation=presentation, 
-                          ai_content=ai_content, ai_content_html=ai_content_html,
                           processing_status=processing_status,
                           config=app.config)
 
@@ -394,10 +397,8 @@ def process_feedback_queue():
 
                     # KI-Antwort generieren (inkrementell)
                     ai_response = generate_ai_content(
-                        presentation.context, 
-                        presentation.content, 
-                        unprocessed_feedbacks, 
-                        presentation.cached_ai_content
+                        feedbacks=unprocessed_feedbacks, 
+                        previous_content=presentation.cached_ai_content
                     )
                     
                     for feedback in unprocessed_feedbacks:
@@ -488,20 +489,22 @@ def api_get_ai_content(id):
     if presentation.user_id != current_user.id and not current_user.is_admin:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-    # Alle Feedbacks für diese Präsentation abrufen
-    feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
-
     # Prüfen, ob wir bereits einen gecachten KI-Inhalt haben
-    if presentation.cached_ai_content:
-        ai_content = presentation.cached_ai_content
-    else:
+    if not presentation.cached_ai_content:
         # KI-Inhalte generieren (initial)
-        ai_content = generate_ai_content(presentation.context, presentation.content, feedbacks, None)
+        initial_feedbacks = Feedback.query.filter_by(presentation_id=presentation.id).all()
+        ai_content = generate_ai_content(
+            feedbacks=initial_feedbacks, 
+            context=presentation.context, 
+            content=presentation.content
+        )
         
         # Cache aktualisieren
         presentation.cached_ai_content = ai_content
         presentation.last_updated = datetime.utcnow()
         db.session.commit()
+    else:
+        ai_content = presentation.cached_ai_content
 
     # Markdown zu HTML konvertieren
     ai_content_html = markdown_to_html(ai_content)
@@ -539,7 +542,7 @@ def api_generate_preview():
     
     try:
         # KI-Inhalte generieren ohne Feedbacks
-        ai_content = generate_ai_content(context, content)
+        ai_content = generate_ai_content(feedbacks=None, context=context, content=content)
         
         # Markdown zu HTML konvertieren
         ai_content_html = markdown_to_html(ai_content)
