@@ -112,26 +112,26 @@
                     <div id="feedbackContainer">
                         {% if feedbacks %}
                             {% for feedback in feedbacks %}
-                                <div class="card mb-3">
-                                    <div class="card-header bg-light">
-                                        <div class="d-flex justify-content-between">
+                                <div class="card mb-2">
+                                    <div class="card-header bg-light py-2">
+                                        <div class="d-flex justify-content-between align-items-center">
                                             <span>
+                                                {% if feedback.is_processed %}
+                                                    <span class="text-success" title="Verarbeitet">✅</span>
+                                                {% else %}
+                                                    <span class="text-warning" title="Wartend">⏳</span>
+                                                {% endif %}
                                                 {% if feedback.participant_name %}
-                                                    <strong>{{ feedback.participant_name }}</strong> - Feedback #{{ feedback.id }}
+                                                    <strong>{{ feedback.participant_name }}</strong> - #{{ feedback.id }}
                                                 {% else %}
                                                     Feedback #{{ feedback.id }}
                                                 {% endif %}
                                             </span>
-                                            <span>{{ feedback.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                            <small class="text-muted">{{ feedback.created_at.strftime('%d.%m %H:%M') }}</small>
                                         </div>
                                     </div>
-                                    <div class="card-body">
-                                        <h5>Frage/Zusatzinfo:</h5>
-                                        <p>{{ feedback.content }}</p>
-                                        
-                                        <div class="alert alert-info">
-                                            Feedback wurde verarbeitet und in den KI-Inhalt integriert.
-                                        </div>
+                                    <div class="card-body py-2">
+                                        <p class="mb-0">{{ feedback.content }}</p>
                                     </div>
                                 </div>
                             {% endfor %}
@@ -208,31 +208,30 @@ function updateFeedbacks() {
                     const date = new Date(feedback.created_at);
                     const formattedDate = date.toLocaleDateString('de-DE') + ' ' + date.toLocaleTimeString('de-DE');
                     
+                    const statusIcon = feedback.is_processed ? 
+                        '<span class="text-success" title="Verarbeitet">✅</span>' : 
+                        '<span class="text-warning" title="Wartend">⏳</span>';
+                    
+                    const shortDate = new Date(feedback.created_at).toLocaleDateString('de-DE', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                    
                     feedbackHTML += `
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <div class="d-flex justify-content-between">
+                        <div class="card mb-2">
+                            <div class="card-header bg-light py-2">
+                                <div class="d-flex justify-content-between align-items-center">
                                     <span>
+                                        ${statusIcon}
                                         ${feedback.participant_name ? 
-                                            `<strong>${feedback.participant_name}</strong> - Feedback #${feedback.id}` : 
+                                            `<strong>${feedback.participant_name}</strong> - #${feedback.id}` : 
                                             `Feedback #${feedback.id}`
                                         }
                                     </span>
-                                    <span>${formattedDate}</span>
+                                    <small class="text-muted">${shortDate}</small>
                                 </div>
                             </div>
-                            <div class="card-body">
-                                <h5>Frage/Zusatzinfo:</h5>
-                                <p>${feedback.content}</p>
-                                
-                                ${feedback.is_processed ? 
-                                    `<div class="alert alert-info">
-                                        Feedback wurde verarbeitet und in den KI-Inhalt integriert.
-                                    </div>` : 
-                                    `<div class="alert alert-warning">
-                                        Wird verarbeitet...
-                                    </div>`
-                                }
+                            <div class="card-body py-2">
+                                <p class="mb-0">${feedback.content}</p>
                             </div>
                         </div>
                     `;

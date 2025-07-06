@@ -208,7 +208,7 @@ def generate_static_info_content(title, description, context, content):
                 "Authorization": f"Bearer {app.config['OPENAI_API_KEY']}"
             },
             json={
-                "model": "gpt-4o-mini",
+                "model": "gpt-4.1",
                 "messages": [
                     {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Erstelle klare, sachliche Inhalte basierend auf den gegebenen Informationen."},
                     {"role": "user", "content": prompt}
@@ -266,8 +266,8 @@ def generate_feedback_content(feedbacks, static_info_content, existing_feedback_
     - NIEMALS bestehende Inhalte löschen oder überschreiben
     - NIEMALS Links außerhalb der "Ungeprüfte Links" Sektion
     
-    IGNORIERE KOMPLETT:
-    - Beleidigungen, Spam, Off-Topic, Trolle
+    IGNORIERE KOMPLETT, NICHT AUFFÜHREN!:
+    - Beleidigungen, Spam, Off-Topic, Trolle, Werbung, Porn (sog. Erwachseneninhalte), Nicht zum Thema passende Inhalte (du kennst den Kontext, also ignoriere alles, was nicht zum Thema passt; z.b. Vortrag über KI, keine politischen Themen!)
     
     # Info-Seite (als Kontext für Kategorisierung)
     {static_info_content}
@@ -289,7 +289,7 @@ def generate_feedback_content(feedbacks, static_info_content, existing_feedback_
                 "Authorization": f"Bearer {app.config['OPENAI_API_KEY']}"
             },
             json={
-                "model": "gpt-4o-mini",
+                "model": "gpt-4.1-mini",
                 "messages": [
                     {"role": "system", "content": "Du bist Experte für Feedback-Ergänzung. KRITISCH: 1) BESTEHENDEN Feedback-Bereich als BASIS nehmen 2) Nur NEUE Feedbacks ergänzen (nicht überschreiben!) 3) ALLE URLs/Links NUR in '## ⚠️ Ungeprüfte Links' (NIEMALS woanders!) 4) Links einzeln untereinander 5) Bestehende Inhalte NIEMALS löschen"},
                     {"role": "user", "content": prompt}
@@ -680,17 +680,33 @@ def schedule_feedback_processing(presentation_id):
         processing_thread.start()
     
     now = datetime.utcnow()
-    processing_interval = timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
+    processing_interval = app.config['FEEDBACK_PROCESSING_INTERVAL']
     
     with processing_lock:
-        # Wenn die Präsentation bereits in der Warteschlange ist, Verarbeitungszeit aktualisieren
-        if presentation_id in feedback_processing_queue:
-            feedback_processing_queue[presentation_id]['next_processing_time'] = now + processing_interval
-        else:
-            # Sonst zur Warteschlange hinzufügen
+        # Wenn die Präsentation noch nicht in der Warteschlange ist, hinzufügen
+        if presentation_id not in feedback_processing_queue:
+            # Berechne nächsten festen Zeitslot (alle X Sekunden ab Mitternacht)
+            # Beispiel: bei 30s Intervall → 00:00:00, 00:00:30, 00:01:00, etc.
+            seconds_since_midnight = (now.hour * 3600 + now.minute * 60 + now.second)
+            next_interval_seconds = ((seconds_since_midnight // processing_interval) + 1) * processing_interval
+            
+            # Nächster Slot berechnen
+            midnight_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            next_slot = midnight_today + timedelta(seconds=next_interval_seconds)
+            
+            # Falls das in der Vergangenheit liegt (sehr unwahrscheinlich), nimm nächsten Tag
+            if next_slot <= now:
+                next_slot += timedelta(days=1)
+            
             feedback_processing_queue[presentation_id] = {
-                'next_processing_time': now + processing_interval
+                'next_processing_time': next_slot,
+                'has_pending_feedback': True
             }
+            print(f"Feedback-Verarbeitung für Präsentation {presentation_id} geplant um {next_slot}")
+        else:
+            # Nur markieren, dass neues Feedback da ist (Zeit nicht verschieben!)
+            feedback_processing_queue[presentation_id]['has_pending_feedback'] = True
+            print(f"Feedback für Präsentation {presentation_id} markiert (nächste Verarbeitung: {feedback_processing_queue[presentation_id]['next_processing_time']})")
 
 @app.route('/p/<access_code>/feedback', methods=['POST'])
 def submit_feedback(access_code):
