@@ -555,6 +555,26 @@ def add_additional_info(id):
     
     return redirect(url_for('view_presentation', id=id))
 
+@app.route('/presentation/<int:presentation_id>/feedback/<int:feedback_id>/delete', methods=['POST'])
+@login_required
+def delete_feedback(presentation_id, feedback_id):
+    presentation = Presentation.get_active_or_404(presentation_id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Feedback finden und löschen
+    feedback = Feedback.query.filter_by(id=feedback_id, presentation_id=presentation_id).first()
+    if feedback:
+        db.session.delete(feedback)
+        db.session.commit()
+        flash(f'Feedback #{feedback_id} wurde gelöscht.', 'success')
+    else:
+        flash('Feedback nicht gefunden.', 'error')
+    
+    return redirect(url_for('view_presentation', id=presentation_id))
+
 @app.route('/presentation/<int:id>/reset_feedback_processing', methods=['POST'])
 @login_required
 def reset_feedback_processing(id):

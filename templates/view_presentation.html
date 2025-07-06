@@ -161,7 +161,14 @@
                                                     Feedback #{{ feedback.id }}
                                                 {% endif %}
                                             </span>
-                                            <small class="text-muted">{{ feedback.created_at.strftime('%d.%m %H:%M') }}</small>
+                                            <div class="d-flex align-items-center">
+                                                <small class="text-muted mr-2">{{ feedback.created_at.strftime('%d.%m %H:%M') }}</small>
+                                                <form method="post" action="{{ url_for('delete_feedback', presentation_id=presentation.id, feedback_id=feedback.id) }}" style="display: inline;">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Feedback löschen" onclick="return confirm('Feedback wirklich löschen?')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="card-body py-2">
@@ -261,7 +268,14 @@ function updateFeedbacks() {
                                             `Feedback #${feedback.id}`
                                         }
                                     </span>
-                                    <small class="text-muted">${shortDate}</small>
+                                    <div class="d-flex align-items-center">
+                                        <small class="text-muted mr-2">${shortDate}</small>
+                                        <form method="post" action="/presentation/{{ presentation.id }}/feedback/${feedback.id}/delete" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Feedback löschen" onclick="return confirm('Feedback wirklich löschen?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body py-2">
