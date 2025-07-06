@@ -68,10 +68,30 @@
             
             <!-- KI-Inhalts-Bereich -->
             <div class="card mb-4">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Live-Infoseite (automatische Aktualisierung)</h3>
+                    {% if presentation.last_error_message %}
+                        <form method="post" action="{{ url_for('retry_ai_generation', id=presentation.id) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                <i class="fas fa-redo"></i> Erneut versuchen
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
                 <div class="card-body">
+                    {% if presentation.last_error_message %}
+                        <div class="alert alert-danger" role="alert">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle"></i> Fehler beim Generieren der KI-Inhalte
+                            </h5>
+                            <p class="mb-2">
+                                <strong>Letzter Fehler:</strong> {{ presentation.last_error_time.strftime('%d.%m.%Y %H:%M') }} Uhr
+                            </p>
+                            <p class="mb-0">
+                                Der bestehende Inhalt wird weiterhin angezeigt. Neues Feedback wird gesammelt und verarbeitet, sobald die KI-Verbindung wieder funktioniert.
+                            </p>
+                        </div>
+                    {% endif %}
                     <div id="aiContentContainer" class="markdown-content">
                         <!-- AI-Inhalt wird hier geladen -->
                         <div class="d-flex justify-content-center">

@@ -77,6 +77,12 @@ class Presentation(db.Model):
     last_updated = db.Column(db.DateTime)
     processing_scheduled = db.Column(db.Boolean, default=False)
     next_processing_time = db.Column(db.DateTime)
+    
+    # Fehlerbehandlung für KI-Anfragen
+    last_error_message = db.Column(db.Text, nullable=True)
+    last_error_time = db.Column(db.DateTime, nullable=True)
+    failed_context = db.Column(db.Text, nullable=True)  # Kontext bei Fehlern beibehalten
+    retry_after = db.Column(db.DateTime, nullable=True)  # Wann frühestens wieder versucht werden darf
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,7 +102,7 @@ def markdown_to_html(text):
     return Markup(markdown.markdown(text, extensions=['tables']))
 
 # KI-Integration
-def generate_ai_content(feedbacks, previous_content=None, context=None, content=None):
+def generate_ai_content(feedbacks, previous_content=None, context=None, content=None, presentation_id=None):
     """Generiert oder aktualisiert KI-basierte Inhalte."""
     print("\n--- KI-Aufruf ---")
     if previous_content:
@@ -148,7 +154,6 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
                 prompt += f"- {feedback.content}\n"
             prompt += "\nBitte verarbeite alle Feedbacks und Fragen der Zuhörer und integriere sie sinnvoll in die Infoseite. Strukturiere die Seite mit Markdown-Überschriften, Listen und anderen Formatierungen für eine übersichtliche Darstellung."
 
-
     
     # OpenAI-API-Anfrage
     try:
@@ -159,7 +164,7 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
                 "Authorization": f"Bearer {app.config['OPENAI_API_KEY']}"
             },
             json={
-                "model": "gpt-4.1-nano",
+                "model": "gpt-4o-mini",
                 "messages": [
                     {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Verwende Markdown-Formatierung für eine klare Struktur mit Überschriften, Listen, Hervorhebungen und anderen Elementen."},
                     {"role": "user", "content": prompt}
@@ -169,12 +174,43 @@ def generate_ai_content(feedbacks, previous_content=None, context=None, content=
         )
         response_data = response.json()
         if 'choices' not in response_data:
-            print(f"Fehler bei der KI-Anfrage: Unerwartete Antwort: {response_data}")
-            return "## Fehler\nEs ist ein Fehler bei der Generierung des KI-Inhalts aufgetreten."
+            error_msg = f"Unerwartete Antwort von OpenAI: {response_data}"
+            print(f"Fehler bei der KI-Anfrage: {error_msg}")
+            store_error_context(presentation_id, error_msg, previous_content, feedbacks)
+            return None  # Kein Inhalt zurückgeben bei Fehler
         return response_data['choices'][0]['message']['content']
     except Exception as e:
-        print(f"Fehler bei der KI-Anfrage: {e}")
-        return "## Fehler\nEs ist ein Fehler bei der Generierung des KI-Inhalts aufgetreten."
+        error_msg = f"Fehler bei der KI-Anfrage: {str(e)}"
+        print(error_msg)
+        store_error_context(presentation_id, error_msg, previous_content, feedbacks)
+        return None  # Kein Inhalt zurückgeben bei Fehler
+
+def store_error_context(presentation_id, error_msg, previous_content, feedbacks):
+    """Speichert Fehlerkontext für spätere Wiederverwendung."""
+    if presentation_id:
+        try:
+            presentation = Presentation.query.get(presentation_id)
+            if presentation:
+                now = datetime.utcnow()
+                presentation.last_error_message = error_msg
+                presentation.last_error_time = now
+                
+                # Retry-Verzögerung: 10 Sekunden warten
+                from datetime import timedelta
+                presentation.retry_after = now + timedelta(seconds=10)
+                
+                # Kontext für Wiederverwendung speichern
+                # WICHTIG: Aktuellen Seiteninhalt verwenden (vor dem fehlgeschlagenen Update)
+                # Das ist der cached_ai_content OHNE die neuen Feedbacks
+                if presentation.cached_ai_content:
+                    presentation.failed_context = presentation.cached_ai_content
+                else:
+                    # Bei Ersterstellung Kontext aus Präsentation verwenden
+                    presentation.failed_context = f"## {presentation.title}\n\n{presentation.description or ''}"
+                
+                db.session.commit()
+        except Exception as e:
+            print(f"Fehler beim Speichern des Fehlerkontexts: {e}")
 
 # Routen
 @app.route('/')
@@ -336,6 +372,59 @@ def delete_presentation(id):
     
     return redirect(url_for('dashboard'))
 
+@app.route('/presentation/<int:id>/retry_ai', methods=['POST'])
+@login_required
+def retry_ai_generation(id):
+    presentation = Presentation.query.get_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Unverarbeitete Feedbacks abrufen
+    unprocessed_feedbacks = Feedback.query.filter_by(
+        presentation_id=id, 
+        is_processed=False
+    ).all()
+    
+    # Kontext für KI-Aufruf bestimmen (mit Fehlerkontext falls verfügbar)
+    content_to_use = presentation.failed_context or presentation.cached_ai_content
+    
+    # Manuellen KI-Aufruf durchführen
+    if unprocessed_feedbacks or content_to_use:
+        ai_response = generate_ai_content(
+            feedbacks=unprocessed_feedbacks,
+            previous_content=content_to_use,
+            context=presentation.context,
+            content=presentation.content,
+            presentation_id=id
+        )
+        
+        # Bei erfolgreichem KI-Aufruf aktualisieren
+        if ai_response is not None:
+            for feedback in unprocessed_feedbacks:
+                feedback.ai_response = ai_response
+                feedback.is_processed = True
+            
+            # Präsentations-Cache aktualisieren und Fehlerkontext löschen
+            presentation.cached_ai_content = ai_response
+            presentation.last_updated = datetime.utcnow()
+            presentation.processing_scheduled = False
+            presentation.next_processing_time = None
+            presentation.last_error_message = None
+            presentation.last_error_time = None
+            presentation.failed_context = None
+            presentation.retry_after = None  # Retry-Verzögerung zurücksetzen
+            
+            db.session.commit()
+            flash('KI-Inhalte erfolgreich aktualisiert!', 'success')
+        else:
+            flash('Fehler beim Generieren der KI-Inhalte. Bitte versuchen Sie es später erneut.', 'error')
+    else:
+        flash('Keine neuen Feedbacks zum Verarbeiten vorhanden.', 'info')
+    
+    return redirect(url_for('view_presentation', id=id))
+
 @app.route('/p/<access_code>')
 def public_view(access_code):
     presentation = Presentation.query.filter_by(access_code=access_code).first_or_404()
@@ -383,6 +472,11 @@ def process_feedback_queue():
                                 del feedback_processing_queue[presentation_id]
                         continue
                     
+                    # Prüfen, ob Retry-Verzögerung noch aktiv ist
+                    if presentation.retry_after and now < presentation.retry_after:
+                        print(f"Presentation {presentation_id}: Retry-Verzögerung noch aktiv bis {presentation.retry_after}")
+                        continue
+                    
                     # Unverarbeitete Feedbacks abrufen
                     unprocessed_feedbacks = Feedback.query.filter_by(
                         presentation_id=presentation_id, 
@@ -395,32 +489,48 @@ def process_feedback_queue():
                                 del feedback_processing_queue[presentation_id]
                         continue
 
+                    # Kontext für KI-Aufruf bestimmen (mit Fehlerkontext falls verfügbar)
+                    content_to_use = presentation.failed_context or presentation.cached_ai_content
+                    
                     # KI-Antwort generieren (inkrementell)
                     ai_response = generate_ai_content(
                         feedbacks=unprocessed_feedbacks, 
-                        previous_content=presentation.cached_ai_content
+                        previous_content=content_to_use,
+                        presentation_id=presentation_id
                     )
                     
-                    for feedback in unprocessed_feedbacks:
-                        feedback.ai_response = ai_response
-                        feedback.is_processed = True
-                    
-                    # Präsentations-Cache aktualisieren
-                    presentation.cached_ai_content = ai_response
-                    presentation.last_updated = datetime.utcnow()
-                    presentation.processing_scheduled = False
-                    presentation.next_processing_time = None
-                    
-                    db.session.commit()
-                    
-                    # Aus der Warteschlange entfernen
-                    with processing_lock:
-                        if presentation_id in feedback_processing_queue:
-                            del feedback_processing_queue[presentation_id]
+                    # Nur bei erfolgreichem KI-Aufruf aktualisieren
+                    if ai_response is not None:
+                        for feedback in unprocessed_feedbacks:
+                            feedback.ai_response = ai_response
+                            feedback.is_processed = True
+                        
+                        # Präsentations-Cache aktualisieren und Fehlerkontext löschen
+                        presentation.cached_ai_content = ai_response
+                        presentation.last_updated = datetime.utcnow()
+                        presentation.processing_scheduled = False
+                        presentation.next_processing_time = None
+                        presentation.last_error_message = None
+                        presentation.last_error_time = None
+                        presentation.failed_context = None
+                        presentation.retry_after = None  # Retry-Verzögerung zurücksetzen
+                        
+                        db.session.commit()
+                        
+                        # Aus der Warteschlange entfernen
+                        with processing_lock:
+                            if presentation_id in feedback_processing_queue:
+                                del feedback_processing_queue[presentation_id]
+                    else:
+                        # Bei Fehler: Feedbacks nicht als verarbeitet markieren
+                        # Warteschlange nicht entfernen, damit später erneut versucht wird
+                        print(f"KI-Aufruf für Präsentation {presentation_id} fehlgeschlagen - wird später erneut versucht")
+                        db.session.commit()  # Fehlerkontext speichern
             
             except Exception as e:
                 print(f"Fehler bei der Verarbeitung von Präsentation {presentation_id}: {e}")
-                # Bei Fehler aus der Warteschlange entfernen, um endlose Wiederholungen zu vermeiden
+                # Bei schwerwiegenden Fehlern aus der Warteschlange entfernen
+                # API-Fehler werden bereits oben behandelt
                 with processing_lock:
                     if presentation_id in feedback_processing_queue:
                         del feedback_processing_queue[presentation_id]
@@ -496,7 +606,8 @@ def api_get_ai_content(id):
         ai_content = generate_ai_content(
             feedbacks=initial_feedbacks, 
             context=presentation.context, 
-            content=presentation.content
+            content=presentation.content,
+            presentation_id=presentation.id
         )
         
         # Cache aktualisieren
