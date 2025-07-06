@@ -103,6 +103,35 @@
                 </div>
             </div>
 
+            <!-- Zusätzliche Informationen -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">Zusätzliche Informationen hinzufügen</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('add_additional_info', id=presentation.id) }}">
+                        <div class="form-group">
+                            <label for="additionalInfo">Zusätzliche Informationen (z.B. Antworten auf Fragen, Updates):</label>
+                            <textarea class="form-control" id="additionalInfo" name="additional_info" rows="4" 
+                                placeholder="Geben Sie hier zusätzliche Informationen ein, die in der statischen Sektion angezeigt werden sollen..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-plus"></i> Information hinzufügen
+                        </button>
+                    </form>
+                    
+                    {% if presentation.additional_info %}
+                        <hr>
+                        <h5>Bereits hinzugefügte Informationen:</h5>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <pre>{{ presentation.additional_info }}</pre>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Feedback-Bereich -->
             <div class="card">
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">

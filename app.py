@@ -91,6 +91,9 @@ class Presentation(db.Model):
     failed_context = db.Column(db.Text, nullable=True)  # Kontext bei Fehlern beibehalten
     retry_after = db.Column(db.DateTime, nullable=True)  # Wann frühestens wieder versucht werden darf
     
+    # Additional info from presenter
+    additional_info = db.Column(db.Text, nullable=True)  # Zusätzliche Informationen vom Präsentierenden
+    
     # Soft Delete
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -169,12 +172,20 @@ def markdown_to_html(text):
 
 # KI-Integration
 
-def generate_static_info_content(title, description, context, content):
+def generate_static_info_content(title, description, context, content, additional_info=None):
     """Generiert statische Info-Seite basierend auf Präsentationsdaten."""
     print("\n--- Statische Info-Generierung ---")
     print(f"Titel: {title}")
     print(f"Beschreibung: {description}")
     print("----------------------------------\n")
+    
+    additional_section = ""
+    if additional_info:
+        additional_section = f"""
+    
+    # Zusätzliche Informationen vom Präsentierenden
+    {additional_info}
+    """
     
     prompt = f"""
     Erstelle eine strukturierte und informative Seite im Markdown-Format basierend auf den folgenden Präsentationsinformationen.
@@ -186,6 +197,7 @@ def generate_static_info_content(title, description, context, content):
     - Verwende Markdown-Formatierung für klare Struktur
     - Keine Feedback-Sektionen erstellen - das ist nur die Info-Seite
     - Keine Informationen erfinden, die nicht aus den gegebenen Daten ableitbar sind
+    - Falls zusätzliche Informationen vom Präsentierenden vorhanden sind, integriere diese in einer separaten Sektion
     
     # Titel der Präsentation
     {title}
@@ -197,7 +209,7 @@ def generate_static_info_content(title, description, context, content):
     {context}
     
     # Hauptinhalt
-    {content}
+    {content}{additional_section}
     """
     
     try:
@@ -505,6 +517,43 @@ def delete_presentation(id):
     
     flash(f'Präsentation "{presentation.title}" wurde gelöscht.', 'success')
     return redirect(url_for('dashboard'))
+
+@app.route('/presentation/<int:id>/add_additional_info', methods=['POST'])
+@login_required
+def add_additional_info(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    additional_info = request.form.get('additional_info')
+    if additional_info and additional_info.strip():
+        # Neue Information zu existierenden hinzufügen
+        if presentation.additional_info:
+            presentation.additional_info += f"\n\n--- Hinzugefügt am {datetime.utcnow().strftime('%d.%m.%Y %H:%M')} ---\n{additional_info.strip()}"
+        else:
+            presentation.additional_info = f"--- Hinzugefügt am {datetime.utcnow().strftime('%d.%m.%Y %H:%M')} ---\n{additional_info.strip()}"
+        
+        # Statischen Inhalt neu generieren (da zusätzliche Infos in den statischen Bereich gehören)
+        if presentation.context and presentation.content:
+            static_content = generate_static_info_content(
+                title=presentation.title,
+                description=presentation.description,
+                context=presentation.context,
+                content=presentation.content,
+                additional_info=presentation.additional_info
+            )
+            if static_content is not None:
+                presentation.static_info_content = static_content
+                presentation.last_updated = datetime.utcnow()
+        
+        db.session.commit()
+        flash('Zusätzliche Information wurde hinzugefügt und der statische Bereich wurde aktualisiert.', 'success')
+    else:
+        flash('Bitte geben Sie eine gültige Information ein.', 'error')
+    
+    return redirect(url_for('view_presentation', id=id))
 
 @app.route('/presentation/<int:id>/reset_feedback_processing', methods=['POST'])
 @login_required
@@ -879,6 +928,11 @@ def add_columns_if_not_exist():
         if 'feedback_content' not in presentation_columns:
             with db.engine.begin() as conn:
                 conn.execute(db.text('ALTER TABLE presentation ADD COLUMN feedback_content TEXT'))
+        
+        # Additional info column
+        if 'additional_info' not in presentation_columns:
+            with db.engine.begin() as conn:
+                conn.execute(db.text('ALTER TABLE presentation ADD COLUMN additional_info TEXT'))
         
         # Feedback table columns
         if 'participant_name' not in feedback_columns:
