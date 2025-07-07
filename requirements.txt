@@ -7,3 +7,5 @@ Pillow
 requests
 markdown
 markupsafe
+gunicorn; sys_platform != "win32"
+waitress; sys_platform == "win32"

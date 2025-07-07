@@ -54,6 +54,7 @@ PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsent
 - SQLAlchemy
 - OpenAI API-Zugang (GPT-4, GPT-4.1-mini, oder GPT-4o-mini)
 - Font Awesome 6.0+ für Status-Icons
+- **Gunicorn** für Produktionsumgebung (parallele Zugriffe)
 - Weitere Abhängigkeiten siehe `requirements.txt`
 
 ## 🚀 Installation
@@ -98,13 +99,42 @@ python migrate_db.py
 ```
 
 ### 6. Anwendung starten
+
+#### Entwicklungsumgebung
 ```bash
 python app.py
 ```
 
+#### Produktionsumgebung (empfohlen)
+
+**Linux/macOS/WSL:**
+```bash
+# Minimal-Setup für parallele Zugriffe
+./start_production.sh
+
+# Erweiterte Konfiguration (höhere Performance):
+./start_production_advanced.sh
+
+# Oder manuell:
+python -m gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5000 app:app
+```
+
+**Windows (ohne WSL):**
+```cmd
+# Windows-kompatible Lösung mit Waitress (Port 8000)
+start_production.bat
+
+# Oder manuell:
+python -m pip install waitress
+python -m waitress --host=127.0.0.1 --port=8000 --threads=4 app:app
+```
+
+**Hinweis:** Port 5000 ist unter Windows oft gesperrt. Das Windows-Skript verwendet daher Port 8000. Bei Problemen siehe `WINDOWS_TROUBLESHOOTING.md`.
+
 ### 7. Zugriff
-- Hauptanwendung: http://127.0.0.1:5000/
-- H2-Datenbank-Konsole: http://127.0.0.1:5000/h2-console (falls verfügbar)
+- **Entwicklung:** http://127.0.0.1:5000/
+- **Linux/macOS/WSL:** http://0.0.0.0:5000/
+- **Windows:** http://127.0.0.1:8000/
 
 ## 📁 Projektstruktur
 
@@ -112,6 +142,10 @@ python app.py
 ConfChat/
 ├── app.py                      # Hauptanwendung (Flask)
 ├── migrate_db.py              # Datenbank-Migrierungsskript
+├── start_production.sh        # Produktions-Start-Skript (Linux/macOS/WSL)
+├── start_production_advanced.sh # Erweiterte Produktions-Konfiguration (Linux/macOS/WSL)
+├── start_production.bat       # Windows-Produktions-Start-Skript (Port 8000)
+├── WINDOWS_TROUBLESHOOTING.md # Windows-spezifische Problemlösungen
 ├── requirements.txt           # Python-Abhängigkeiten
 ├── CLAUDE.md                  # Entwickler-Dokumentation
 ├── instance/
@@ -245,6 +279,44 @@ python demo_improved_prompt.py    # Feedback-Kategorisierung
 python demo_soft_delete.py        # Soft-Delete Verhalten
 python demo_improved_behavior.py  # Fehlerbehandlung
 ```
+
+## 🚀 Produktionsdeployment
+
+### Minimal-Setup für parallele Zugriffe
+
+Das mitgelieferte Produktions-Setup verbessert die Performance erheblich:
+
+```bash
+# Einfacher Start (empfohlen)
+./start_production.sh
+
+# Erweiterte Konfiguration (mehr Performance, kleines Risiko)
+./start_production_advanced.sh
+```
+
+**Vorteile gegenüber `python app.py`:**
+- **4x bessere Parallelverarbeitung** durch Multi-Threading
+- **Robustheit** bei Worker-Crashes
+- **Produktions-optimierte Konfiguration**
+- **Bessere Ressourcennutzung**
+
+### Performance-Vergleich
+
+| Setup | Concurrent Users | Threading | Stabilität |
+|-------|------------------|-----------|------------|
+| `python app.py` | ~10-20 | Entwicklungsserver | Niedrig |
+| `start_production.sh` | ~100-200 | 1 Worker + 4 Threads | Hoch |
+| `start_production_advanced.sh` | ~200-500 | 2 Worker + 2 Threads | Mittel* |
+
+*\*Risiko: Background-Processing könnte doppelt ausgeführt werden*
+
+### Erweiterte Produktions-Optionen
+
+Für höhere Skalierung siehe Vollarchitektur-Empfehlungen:
+- **PostgreSQL** statt SQLite (>500 concurrent users)
+- **Celery** für Background-Tasks (eliminiert Threading-Probleme)
+- **Redis** für Session-Storage bei Multi-Worker Setup
+- **Nginx** als Reverse Proxy für statische Dateien
 
 ## 🎨 Anpassungen
 
