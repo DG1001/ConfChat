@@ -131,10 +131,29 @@ python -m waitress --host=127.0.0.1 --port=8000 --threads=4 app:app
 
 **Hinweis:** Port 5000 ist unter Windows oft gesperrt. Das Windows-Skript verwendet daher Port 8000. Bei Problemen siehe `WINDOWS_TROUBLESHOOTING.md`.
 
+#### Docker (empfohlen für Produktion)
+```bash
+# Mit Environment-Datei
+cp .env.example .env
+# .env bearbeiten und OPENAI_API_KEY setzen
+docker-compose up -d
+
+# Oder mit docker-run.sh Skript
+OPENAI_API_KEY=sk-... ./docker-run.sh --port 8080
+
+# Oder manuell
+docker run -d \
+  -p 8080:5000 \
+  -e OPENAI_API_KEY=sk-... \
+  -v $(pwd)/instance:/app/instance \
+  ghcr.io/ihrusername/confchat:latest
+```
+
 ### 7. Zugriff
 - **Entwicklung:** http://127.0.0.1:5000/
 - **Linux/macOS/WSL:** http://0.0.0.0:5000/
 - **Windows:** http://127.0.0.1:8000/
+- **Docker:** http://localhost:8080/ (oder gewählter Port)
 
 ## 📁 Projektstruktur
 
@@ -142,6 +161,10 @@ python -m waitress --host=127.0.0.1 --port=8000 --threads=4 app:app
 ConfChat/
 ├── app.py                      # Hauptanwendung (Flask)
 ├── migrate_db.py              # Datenbank-Migrierungsskript
+├── Dockerfile                 # Docker-Image für Produktion
+├── docker-compose.yml         # Docker-Compose für lokale Entwicklung
+├── docker-run.sh              # Docker-Start-Skript mit Optionen
+├── .env.example               # Umgebungsvariablen-Vorlage
 ├── start_production.sh        # Produktions-Start-Skript (Linux/macOS/WSL)
 ├── start_production_advanced.sh # Erweiterte Produktions-Konfiguration (Linux/macOS/WSL)
 ├── start_production.bat       # Windows-Produktions-Start-Skript (Port 8000)
@@ -282,7 +305,46 @@ python demo_improved_behavior.py  # Fehlerbehandlung
 
 ## 🚀 Produktionsdeployment
 
-### Minimal-Setup für parallele Zugriffe
+### Docker (Empfohlen)
+
+**Schnellstart mit Docker:**
+```bash
+# 1. Repository klonen
+git clone <your-repo-url>
+cd ConfChat
+
+# 2. Umgebungsvariablen setzen
+cp .env.example .env
+# .env bearbeiten und OPENAI_API_KEY setzen
+
+# 3. Starten
+docker-compose up -d
+```
+
+**Erweiterte Docker-Optionen:**
+```bash
+# Mit docker-run.sh (mehr Kontrolle)
+OPENAI_API_KEY=sk-... ./docker-run.sh --port 8080 --detach
+
+# GitHub Container Registry Image verwenden
+docker run -d \
+  -p 8080:5000 \
+  -e OPENAI_API_KEY=sk-... \
+  -v $(pwd)/instance:/app/instance \
+  ghcr.io/ihrusername/confchat:latest
+
+# Container-Management
+./docker-run.sh --logs    # Logs anzeigen
+./docker-run.sh --stop    # Container stoppen
+```
+
+**GitHub Actions Setup:**
+1. Repository auf GitHub pushen
+2. Actions werden automatisch ausgeführt
+3. Docker-Image wird in GitHub Container Registry gepusht
+4. Image URL: `ghcr.io/ihrusername/confchat:latest`
+
+### Minimal-Setup für parallele Zugriffe (ohne Docker)
 
 Das mitgelieferte Produktions-Setup verbessert die Performance erheblich:
 
@@ -302,13 +364,21 @@ Das mitgelieferte Produktions-Setup verbessert die Performance erheblich:
 
 ### Performance-Vergleich
 
-| Setup | Concurrent Users | Threading | Stabilität |
-|-------|------------------|-----------|------------|
-| `python app.py` | ~10-20 | Entwicklungsserver | Niedrig |
-| `start_production.sh` | ~100-200 | 1 Worker + 4 Threads | Hoch |
-| `start_production_advanced.sh` | ~200-500 | 2 Worker + 2 Threads | Mittel* |
+| Setup | Concurrent Users | Threading | Stabilität | Empfehlung |
+|-------|------------------|-----------|------------|------------|
+| `python app.py` | ~10-20 | Entwicklungsserver | Niedrig | Nur Entwicklung |
+| **Docker** | ~500-1000+ | Gunicorn + Container | **Sehr hoch** | **✅ Produktion** |
+| `start_production.sh` | ~100-200 | 1 Worker + 4 Threads | Hoch | Einfache Prod |
+| `start_production_advanced.sh` | ~200-500 | 2 Worker + 2 Threads | Mittel* | Erfahrene Nutzer |
 
 *\*Risiko: Background-Processing könnte doppelt ausgeführt werden*
+
+**Docker-Vorteile:**
+- **Isolation**: Keine Abhängigkeitskonflikte
+- **Portabilität**: Läuft überall gleich
+- **Skalierung**: Einfache Horizontal-Skalierung
+- **CI/CD**: Automatisches Building und Deployment
+- **Wartung**: Container-Updates ohne Server-Neustart
 
 ### Erweiterte Produktions-Optionen
 

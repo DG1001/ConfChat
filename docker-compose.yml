@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  presentai:
+    build: .
+    ports:
+      - "${PORT:-8080}:5000"  # External port configurable, internal always 5000
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REGISTRATION_PASSWORD=${REGISTRATION_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - FLASK_ENV=production
+      - PORT=5000
+      - HOST=0.0.0.0
+    volumes:
+      - ./instance:/app/instance  # Persist SQLite database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add PostgreSQL for scaling (uncomment if needed)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: presentai
+  #     POSTGRES_USER: presentai
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-presentai123}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+  # Optional: Add Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+  #   volumes:
+  #     - redis_data:/data
+
+# volumes:
+#   postgres_data:
+#   redis_data:
