@@ -135,7 +135,7 @@ class Presentation(db.Model):
 
 class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.String(500), nullable=False)  # Begrenzt auf 500 Zeichen
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     presentation_id = db.Column(db.Integer, db.ForeignKey('presentation.id'), nullable=False)
     is_processed = db.Column(db.Boolean, default=False)
@@ -855,10 +855,29 @@ def submit_feedback(access_code):
     feedback_content = request.form.get('feedback')
     participant_name = request.form.get('participant_name')
     
+    # Backend-Validierung für Zeichenlänge
+    if not feedback_content or not feedback_content.strip():
+        return jsonify({
+            'success': False,
+            'error': 'Feedback-Inhalt ist erforderlich'
+        }), 400
+    
+    if len(feedback_content) > 500:
+        return jsonify({
+            'success': False,
+            'error': 'Feedback ist zu lang (maximum 500 Zeichen)'
+        }), 400
+    
+    if participant_name and len(participant_name) > 100:
+        return jsonify({
+            'success': False,
+            'error': 'Name ist zu lang (maximum 100 Zeichen)'
+        }), 400
+    
     feedback = Feedback(
-        content=feedback_content,
+        content=feedback_content.strip(),
         presentation_id=presentation.id,
-        participant_name=participant_name
+        participant_name=participant_name.strip() if participant_name else None
     )
     
     db.session.add(feedback)

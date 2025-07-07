@@ -38,11 +38,17 @@
                             <div class="form-group mb-3">
                                 <label for="participantName" class="form-label">Ihr Name:</label>
                                 <input type="text" class="form-control" id="participantName" 
-                                    placeholder="Geben Sie hier Ihren Namen ein...">
+                                    placeholder="Geben Sie hier Ihren Namen ein..." maxlength="100">
                             </div>
                             <div class="form-group">
+                                <label for="feedbackContent" class="form-label">Ihre Nachricht:</label>
                                 <textarea class="form-control" id="feedbackContent" rows="3" 
-                                    placeholder="Geben Sie hier Ihre Frage oder zusätzliche Informationen ein..."></textarea>
+                                    placeholder="Geben Sie hier Ihre Frage oder zusätzliche Informationen ein..." 
+                                    maxlength="500"></textarea>
+                                <div class="d-flex justify-content-between">
+                                    <small class="form-text text-muted">Maximum 500 Zeichen</small>
+                                    <small id="charCount" class="form-text text-muted">0/500</small>
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary mt-2">Absenden</button>
                         </form>
@@ -63,6 +69,31 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedName) {
         document.getElementById('participantName').value = savedName;
     }
+    
+    // Character counter for feedback content
+    const feedbackContent = document.getElementById('feedbackContent');
+    const charCount = document.getElementById('charCount');
+    
+    function updateCharCount() {
+        const currentLength = feedbackContent.value.length;
+        charCount.textContent = currentLength + '/500';
+        
+        if (currentLength > 450) {
+            charCount.classList.add('text-warning');
+        } else {
+            charCount.classList.remove('text-warning');
+        }
+        
+        if (currentLength >= 500) {
+            charCount.classList.add('text-danger');
+            charCount.classList.remove('text-warning');
+        } else {
+            charCount.classList.remove('text-danger');
+        }
+    }
+    
+    feedbackContent.addEventListener('input', updateCharCount);
+    updateCharCount(); // Initial count
     
     {% if presentation.live_info_visible %}
     // Live-Info laden und regelmäßig aktualisieren
@@ -96,9 +127,20 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     const feedbackContent = document.getElementById('feedbackContent').value;
     const participantName = document.getElementById('participantName').value;
     
-    if (!feedbackContent.trim()) return;
+    if (!feedbackContent.trim()) {
+        alert('Bitte geben Sie eine Nachricht ein.');
+        return;
+    }
+    if (feedbackContent.length > 500) {
+        alert('Die Nachricht ist zu lang. Maximum 500 Zeichen erlaubt.');
+        return;
+    }
     if (!participantName.trim()) {
         alert('Bitte geben Sie Ihren Namen ein.');
+        return;
+    }
+    if (participantName.length > 100) {
+        alert('Der Name ist zu lang. Maximum 100 Zeichen erlaubt.');
         return;
     }
     
@@ -121,11 +163,14 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
     .then(data => {
         if (data.success) {
             document.getElementById('feedbackContent').value = '';
+            updateCharCount(); // Character counter zurücksetzen
             const successAlert = document.getElementById('feedback-success');
             successAlert.classList.remove('d-none');
             setTimeout(() => {
                 successAlert.classList.add('d-none');
             }, 3000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
         }
     })
     .catch(error => {
