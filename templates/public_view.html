@@ -63,18 +63,12 @@
 </div>
 
 <script>
-// Load name from localStorage on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const savedName = localStorage.getItem('participantName');
-    if (savedName) {
-        document.getElementById('participantName').value = savedName;
-    }
-    
-    // Character counter for feedback content
+// Global function for character count (accessible from anywhere)
+function updateCharCount() {
     const feedbackContent = document.getElementById('feedbackContent');
     const charCount = document.getElementById('charCount');
     
-    function updateCharCount() {
+    if (feedbackContent && charCount) {
         const currentLength = feedbackContent.value.length;
         charCount.textContent = currentLength + '/500';
         
@@ -91,9 +85,22 @@ document.addEventListener('DOMContentLoaded', function() {
             charCount.classList.remove('text-danger');
         }
     }
+}
+
+// Load name from localStorage on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedName = localStorage.getItem('participantName');
+    if (savedName) {
+        document.getElementById('participantName').value = savedName;
+    }
     
-    feedbackContent.addEventListener('input', updateCharCount);
-    updateCharCount(); // Initial count
+    // Character counter for feedback content
+    const feedbackContent = document.getElementById('feedbackContent');
+    
+    if (feedbackContent) {
+        feedbackContent.addEventListener('input', updateCharCount);
+        updateCharCount(); // Initial count
+    }
     
     {% if presentation.live_info_visible %}
     // Live-Info laden und regelmäßig aktualisieren

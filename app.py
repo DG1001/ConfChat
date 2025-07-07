@@ -847,60 +847,72 @@ def schedule_feedback_processing(presentation_id):
 
 @app.route('/p/<access_code>/feedback', methods=['POST'])
 def submit_feedback(access_code):
-    presentation = Presentation.get_by_access_code(access_code)
-    if not presentation:
-        from flask import abort
-        abort(404)
+    try:
+        presentation = Presentation.get_by_access_code(access_code)
+        if not presentation:
+            from flask import abort
+            abort(404)
+        
+        feedback_content = request.form.get('feedback')
+        participant_name = request.form.get('participant_name')
+        
+        # Backend-Validierung für Zeichenlänge
+        if not feedback_content or not feedback_content.strip():
+            return jsonify({
+                'success': False,
+                'error': 'Feedback-Inhalt ist erforderlich'
+            }), 400
+        
+        if len(feedback_content) > 500:
+            return jsonify({
+                'success': False,
+                'error': 'Feedback ist zu lang (maximum 500 Zeichen)'
+            }), 400
+        
+        if participant_name and len(participant_name) > 100:
+            return jsonify({
+                'success': False,
+                'error': 'Name ist zu lang (maximum 100 Zeichen)'
+            }), 400
+        
+        feedback = Feedback(
+            content=feedback_content.strip(),
+            presentation_id=presentation.id,
+            participant_name=participant_name.strip() if participant_name else None
+        )
+        
+        db.session.add(feedback)
+        
+        # Verarbeitung planen
+        presentation.processing_scheduled = True
+        presentation.next_processing_time = datetime.utcnow() + timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
+        
+        db.session.commit()
+        
+        # Feedback-Verarbeitung im Hintergrund planen
+        try:
+            schedule_feedback_processing(presentation.id)
+        except Exception as e:
+            print(f"Warnung: Feedback-Verarbeitung konnte nicht geplant werden: {e}")
+            # Feedback wurde trotzdem gespeichert
+        
+        # Temporäre Antwort zurückgeben
+        temp_response = "Ihre Anfrage wurde entgegengenommen und wird verarbeitet. Die Seite wird in Kürze aktualisiert."
+        temp_response_html = f"<p>{temp_response}</p><p><em>Wird verarbeitet...</em></p>"
+        
+        return jsonify({
+            'success': True,
+            'ai_response': temp_response,
+            'ai_response_html': temp_response_html,
+            'processing': True
+        })
     
-    feedback_content = request.form.get('feedback')
-    participant_name = request.form.get('participant_name')
-    
-    # Backend-Validierung für Zeichenlänge
-    if not feedback_content or not feedback_content.strip():
+    except Exception as e:
+        print(f"Fehler beim Feedback-Submit: {e}")
         return jsonify({
             'success': False,
-            'error': 'Feedback-Inhalt ist erforderlich'
-        }), 400
-    
-    if len(feedback_content) > 500:
-        return jsonify({
-            'success': False,
-            'error': 'Feedback ist zu lang (maximum 500 Zeichen)'
-        }), 400
-    
-    if participant_name and len(participant_name) > 100:
-        return jsonify({
-            'success': False,
-            'error': 'Name ist zu lang (maximum 100 Zeichen)'
-        }), 400
-    
-    feedback = Feedback(
-        content=feedback_content.strip(),
-        presentation_id=presentation.id,
-        participant_name=participant_name.strip() if participant_name else None
-    )
-    
-    db.session.add(feedback)
-    
-    # Verarbeitung planen
-    presentation.processing_scheduled = True
-    presentation.next_processing_time = datetime.utcnow() + timedelta(seconds=app.config['FEEDBACK_PROCESSING_INTERVAL'])
-    
-    db.session.commit()
-    
-    # Feedback-Verarbeitung im Hintergrund planen
-    schedule_feedback_processing(presentation.id)
-    
-    # Temporäre Antwort zurückgeben
-    temp_response = "Ihre Anfrage wurde entgegengenommen und wird verarbeitet. Die Seite wird in Kürze aktualisiert."
-    temp_response_html = f"<p>{temp_response}</p><p><em>Wird verarbeitet...</em></p>"
-    
-    return jsonify({
-        'success': True,
-        'ai_response': temp_response,
-        'ai_response_html': temp_response_html,
-        'processing': True
-    })
+            'error': 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.'
+        }), 500
 
 @app.route('/api/presentation/<int:id>/ai_content_public', methods=['GET'])
 def api_get_ai_content_public(id):
