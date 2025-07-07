@@ -21,7 +21,16 @@ import string
 from collections import defaultdict
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
+
+# Secret Key generieren falls nicht gesetzt
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    # Generiere einen zufälligen Secret Key, wenn keiner gesetzt ist
+    SECRET_KEY = secrets.token_hex(32)
+    print(f"\n\n*** WICHTIG: Generierter Secret Key: {SECRET_KEY} ***")
+    print("*** Setzen Sie SECRET_KEY als Umgebungsvariable für Produktionsumgebung ***\n\n")
+
+app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///presentations.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
