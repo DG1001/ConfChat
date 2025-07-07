@@ -46,6 +46,7 @@ PresentAI ist eine moderne, KI-gestützte Webanwendung für interaktive Präsent
 - **Feedback-Verarbeitung zurücksetzen**: Alle verarbeiteten Feedbacks wieder auf wartend stellen
 - **Zusätzliche Informationen**: Jederzeit neue Infos zum statischen Bereich hinzufügen
 - **Live-Info-Freigabe**: Ein/Ausblenden der Live-Infoseite für Zuhörer per Knopfdruck
+- **Feedback-Sperrung**: Temporäres Blockieren neuer Feedbacks von Zuhörern
 
 ## 🛠️ Systemanforderungen
 
@@ -218,6 +219,11 @@ ConfChat/
    - Ein-Klick-Freigabe für Live-Infoseite
    - Sofortige Sichtbarkeit/Verbergung für alle Zuhörer
 
+7. **Feedback-Kontrolle**
+   - Ein-Klick-Sperrung neuer Feedbacks von Zuhörern
+   - Temporäre Blockierung unabhängig von Live-Info-Freigabe
+   - Klare Benachrichtigung für Zuhörer bei gesperrtem Feedback
+
 ### Für Zuhörer
 
 1. **Zugang über QR-Code oder Link**
@@ -236,6 +242,7 @@ ConfChat/
    - Links teilen (erscheinen in "⚠️ Ungeprüfte Links" mit Beschreibung)
    - Faktische Informationen beitragen
    - Kommentare abgeben
+   - **Hinweis**: Bei gesperrtem Feedback wird eine entsprechende Meldung angezeigt
 
 ## ⚙️ Erweiterte Konfiguration
 
