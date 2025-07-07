@@ -492,10 +492,32 @@ def edit_presentation(id):
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        presentation.title = request.form.get('title')
-        presentation.description = request.form.get('description')
-        presentation.context = request.form.get('context')
-        presentation.content = request.form.get('content')
+        # Neue Werte aus dem Formular holen
+        new_title = request.form.get('title')
+        new_description = request.form.get('description')
+        new_context = request.form.get('context')
+        new_content = request.form.get('content')
+        
+        # Werte in der Datenbank aktualisieren
+        presentation.title = new_title
+        presentation.description = new_description
+        presentation.context = new_context
+        presentation.content = new_content
+        
+        # Statische Info-Seite neu generieren (wie bei neuer Präsentation)
+        try:
+            static_content = generate_static_info_content(
+                title=new_title,
+                description=new_description,
+                context=new_context,
+                content=new_content,
+                additional_info=presentation.additional_info
+            )
+            presentation.static_info_content = static_content
+            flash('Präsentation wurde erfolgreich aktualisiert und die statische Info-Seite neu generiert.', 'success')
+        except Exception as e:
+            print(f"Fehler bei der Generierung der statischen Info-Seite: {e}")
+            flash('Präsentation wurde aktualisiert, aber die statische Info-Seite konnte nicht neu generiert werden.', 'warning')
         
         # Cache zurücksetzen, da sich der Inhalt geändert hat
         presentation.cached_ai_content = None
@@ -993,6 +1015,7 @@ def api_generate_preview():
     data = request.json
     context = data.get('context', '')
     content = data.get('content', '')
+    additional_info = data.get('additional_info', '')
     
     if not context or not content:
         return jsonify({
@@ -1001,8 +1024,15 @@ def api_generate_preview():
         })
     
     try:
-        # KI-Inhalte generieren ohne Feedbacks
-        ai_content = generate_ai_content(feedbacks=None, context=context, content=content)
+        # Statische Info-Seite generieren (wie beim ersten Mal)
+        # Note: Für Vorschau verwenden wir leere Titel/Beschreibung, da diese im Edit-Formular stehen
+        ai_content = generate_static_info_content(
+            title="Präsentationsvorschau", 
+            description="Generierte Vorschau", 
+            context=context, 
+            content=content, 
+            additional_info=additional_info if additional_info else None
+        )
         
         # Markdown zu HTML konvertieren
         ai_content_html = markdown_to_html(ai_content)

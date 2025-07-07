@@ -30,25 +30,17 @@
                             <textarea class="form-control" id="content" name="content" rows="10">{{ presentation.content }}</textarea>
                         </div>
                         
-                        <div class="form-group form-check">
-                            <input type="checkbox" class="form-check-input" id="previewCheck">
-                            <label class="form-check-label" for="previewCheck">KI-Vorschau aktualisieren</label>
-                        </div>
-                        
-                        <div id="aiPreview" class="d-none mt-3 mb-3">
-                            <h4>KI-Vorschau</h4>
-                            <div class="p-3 bg-light rounded">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="sr-only">Generiere...</span>
-                                </div>
-                                <span class="ml-2">KI-Inhalt wird generiert...</span>
-                            </div>
-                            <div id="previewContent" class="p-3 bg-light rounded mt-2 d-none"></div>
-                        </div>
                         
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{{ url_for('view_presentation', id=presentation.id) }}" class="btn btn-secondary">Zurück</a>
-                            <button type="submit" class="btn btn-success">Aktualisieren</button>
+                            <button type="submit" class="btn btn-success">Aktualisieren & Statische Seite neu generieren</button>
+                        </div>
+                        
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                Beim Aktualisieren wird die statische Info-Seite automatisch basierend auf den neuen Inhalten neu generiert.
+                            </small>
                         </div>
                     </form>
                 </div>
@@ -57,53 +49,4 @@
     </div>
 </div>
 
-<script>
-document.getElementById('previewCheck').addEventListener('change', function() {
-    const aiPreview = document.getElementById('aiPreview');
-    const previewContent = document.getElementById('previewContent');
-    
-    if (this.checked) {
-        aiPreview.classList.remove('d-none');
-        
-        // Kontext und Inhalt abrufen
-        const context = document.getElementById('context').value;
-        const content = document.getElementById('content').value;
-        
-        if (context.trim() === '' || content.trim() === '') {
-            previewContent.innerHTML = 'Bitte füllen Sie sowohl den Kontext als auch den Inhalt aus, um eine KI-Vorschau zu generieren.';
-            previewContent.classList.remove('d-none');
-            return;
-        }
-        
-        // API-Aufruf an den Server, um KI-Vorschau zu generieren
-        fetch('/api/generate_preview', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                context: context,
-                content: content
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                previewContent.innerHTML = data.preview_html;
-                previewContent.classList.remove('d-none');
-            } else {
-                previewContent.innerHTML = 'Fehler bei der Generierung der Vorschau: ' + data.error;
-                previewContent.classList.remove('d-none');
-            }
-        })
-        .catch(error => {
-            console.error('Fehler:', error);
-            previewContent.innerHTML = 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.';
-            previewContent.classList.remove('d-none');
-        });
-    } else {
-        aiPreview.classList.add('d-none');
-    }
-});
-</script>
 {% endblock %}
