@@ -102,6 +102,9 @@ class Presentation(db.Model):
     # Live info visibility for public view
     live_info_visible = db.Column(db.Boolean, default=False, nullable=False)  # Sichtbarkeit der Live-Info für Zuhörer
     
+    # Feedback control
+    feedback_disabled = db.Column(db.Boolean, default=False, nullable=False)  # Feedback-Eingabe sperren/entsperren
+    
     # Soft Delete
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -626,6 +629,26 @@ def toggle_live_info_visibility(id):
     
     return redirect(url_for('view_presentation', id=id))
 
+@app.route('/presentation/<int:id>/toggle_feedback', methods=['POST'])
+@login_required
+def toggle_feedback(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Feedback-Status umschalten
+    presentation.feedback_disabled = not presentation.feedback_disabled
+    db.session.commit()
+    
+    if presentation.feedback_disabled:
+        flash('Feedback wurde für Zuhörer gesperrt.', 'warning')
+    else:
+        flash('Feedback wurde für Zuhörer wieder aktiviert.', 'success')
+    
+    return redirect(url_for('view_presentation', id=id))
+
 @app.route('/presentation/<int:presentation_id>/feedback/<int:feedback_id>/delete', methods=['POST'])
 @login_required
 def delete_feedback(presentation_id, feedback_id):
@@ -900,6 +923,13 @@ def submit_feedback(access_code):
         if not presentation:
             from flask import abort
             abort(404)
+        
+        # Überprüfen, ob Feedback gesperrt ist
+        if presentation.feedback_disabled:
+            return jsonify({
+                'success': False,
+                'error': 'Feedback ist aktuell vom Präsentator deaktiviert.'
+            }), 403
         
         feedback_content = request.form.get('feedback')
         participant_name = request.form.get('participant_name')

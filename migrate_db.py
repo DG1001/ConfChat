@@ -22,7 +22,7 @@ def migrate_database():
         cursor.execute("PRAGMA table_info(presentation)")
         columns = [column[1] for column in cursor.fetchall()]
         
-        new_columns = ['last_error_message', 'last_error_time', 'failed_context', 'retry_after', 'is_deleted', 'deleted_at', 'deleted_by_user_id']
+        new_columns = ['last_error_message', 'last_error_time', 'failed_context', 'retry_after', 'is_deleted', 'deleted_at', 'deleted_by_user_id', 'additional_info', 'live_info_visible', 'feedback_disabled']
         columns_to_add = [col for col in new_columns if col not in columns]
         
         if not columns_to_add:
@@ -59,6 +59,18 @@ def migrate_database():
         if 'deleted_by_user_id' in columns_to_add:
             cursor.execute("ALTER TABLE presentation ADD COLUMN deleted_by_user_id INTEGER")
             print("Added deleted_by_user_id column")
+        
+        if 'additional_info' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN additional_info TEXT")
+            print("Added additional_info column")
+        
+        if 'live_info_visible' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN live_info_visible BOOLEAN DEFAULT 0 NOT NULL")
+            print("Added live_info_visible column")
+        
+        if 'feedback_disabled' in columns_to_add:
+            cursor.execute("ALTER TABLE presentation ADD COLUMN feedback_disabled BOOLEAN DEFAULT 0 NOT NULL")
+            print("Added feedback_disabled column")
         
         conn.commit()
         print("Database migration completed successfully!")

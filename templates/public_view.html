@@ -34,6 +34,13 @@
                     
                     <div class="feedback-section">
                         <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
+                        {% if presentation.feedback_disabled %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-lock"></i> 
+                                <strong>Feedback aktuell deaktiviert</strong><br>
+                                Der Präsentator hat die Feedback-Funktion temporär gesperrt.
+                            </div>
+                        {% else %}
                         <form id="feedbackForm" class="mb-3">
                             <div class="form-group mb-3">
                                 <label for="participantName" class="form-label">Ihr Name:</label>
@@ -52,6 +59,7 @@
                             </div>
                             <button type="submit" class="btn btn-primary mt-2">Absenden</button>
                         </form>
+                        {% endif %}
                         <div id="feedback-success" class="alert alert-success d-none mt-3">
                             Ihr Feedback wurde erfolgreich übermittelt.
                         </div>
@@ -90,8 +98,9 @@ function updateCharCount() {
 // Load name from localStorage on page load
 document.addEventListener('DOMContentLoaded', function() {
     const savedName = localStorage.getItem('participantName');
-    if (savedName) {
-        document.getElementById('participantName').value = savedName;
+    const participantNameEl = document.getElementById('participantName');
+    if (savedName && participantNameEl) {
+        participantNameEl.value = savedName;
     }
     
     // Character counter for feedback content
@@ -107,6 +116,77 @@ document.addEventListener('DOMContentLoaded', function() {
     updateLiveInfo();
     setInterval(updateLiveInfo, 10000); // Alle 10 Sekunden aktualisieren
     {% endif %}
+    
+    // Feedback-Formular nur wenn nicht gesperrt
+    const feedbackForm = document.getElementById('feedbackForm');
+    if (feedbackForm) {
+        feedbackForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const feedbackContent = document.getElementById('feedbackContent').value;
+            const participantName = document.getElementById('participantName').value;
+            
+            if (!feedbackContent.trim()) {
+                alert('Bitte geben Sie eine Nachricht ein.');
+                return;
+            }
+            if (feedbackContent.length > 500) {
+                alert('Die Nachricht ist zu lang. Maximum 500 Zeichen erlaubt.');
+                return;
+            }
+            if (!participantName.trim()) {
+                alert('Bitte geben Sie Ihren Namen ein.');
+                return;
+            }
+            if (participantName.length > 100) {
+                alert('Der Name ist zu lang. Maximum 100 Zeichen erlaubt.');
+                return;
+            }
+            
+            // Save name to localStorage
+            localStorage.setItem('participantName', participantName);
+            
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sende...';
+            
+            fetch('/p/{{ presentation.access_code }}/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'feedback=' + encodeURIComponent(feedbackContent) + '&participant_name=' + encodeURIComponent(participantName)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const feedbackContentEl = document.getElementById('feedbackContent');
+                    if (feedbackContentEl) {
+                        feedbackContentEl.value = '';
+                        updateCharCount(); // Character counter zurücksetzen
+                    }
+                    const successAlert = document.getElementById('feedback-success');
+                    if (successAlert) {
+                        successAlert.classList.remove('d-none');
+                        setTimeout(() => {
+                            successAlert.classList.add('d-none');
+                        }, 3000);
+                    }
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(error => {
+                console.error('Fehler:', error);
+                alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.');
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            });
+        });
+    }
 });
 
 {% if presentation.live_info_visible %}
@@ -127,68 +207,6 @@ function updateLiveInfo() {
         });
 }
 {% endif %}
-
-document.getElementById('feedbackForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const feedbackContent = document.getElementById('feedbackContent').value;
-    const participantName = document.getElementById('participantName').value;
-    
-    if (!feedbackContent.trim()) {
-        alert('Bitte geben Sie eine Nachricht ein.');
-        return;
-    }
-    if (feedbackContent.length > 500) {
-        alert('Die Nachricht ist zu lang. Maximum 500 Zeichen erlaubt.');
-        return;
-    }
-    if (!participantName.trim()) {
-        alert('Bitte geben Sie Ihren Namen ein.');
-        return;
-    }
-    if (participantName.length > 100) {
-        alert('Der Name ist zu lang. Maximum 100 Zeichen erlaubt.');
-        return;
-    }
-    
-    // Save name to localStorage
-    localStorage.setItem('participantName', participantName);
-    
-    const submitButton = this.querySelector('button[type="submit"]');
-    const originalButtonText = submitButton.innerHTML;
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sende...';
-    
-    fetch('/p/{{ presentation.access_code }}/feedback', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'feedback=' + encodeURIComponent(feedbackContent) + '&participant_name=' + encodeURIComponent(participantName)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('feedbackContent').value = '';
-            updateCharCount(); // Character counter zurücksetzen
-            const successAlert = document.getElementById('feedback-success');
-            successAlert.classList.remove('d-none');
-            setTimeout(() => {
-                successAlert.classList.add('d-none');
-            }, 3000);
-        } else {
-            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
-        }
-    })
-    .catch(error => {
-        console.error('Fehler:', error);
-        alert('Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.');
-    })
-    .finally(() => {
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
-    });
-});
 </script>
 <style>
 .markdown-content h1, .markdown-content h2, .markdown-content h3, 
@@ -271,10 +289,4 @@ document.getElementById('feedbackForm').addEventListener('submit', function(e) {
 }
 </style>
 
-<script>
-// Füge die Markdown-Styling-Klasse zur AI-Container hinzu
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelector('.ai-container').classList.add('markdown-content');
-});
-</script>
 {% endblock %}

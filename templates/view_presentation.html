@@ -82,6 +82,17 @@
                                 </button>
                             {% endif %}
                         </form>
+                        <form method="post" action="{{ url_for('toggle_feedback', id=presentation.id) }}" style="display: inline;" class="mr-2">
+                            {% if presentation.feedback_disabled %}
+                                <button type="submit" class="btn btn-success btn-sm" title="Feedback für Zuhörer wieder aktivieren">
+                                    <i class="fas fa-unlock"></i> Feedback aktivieren
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-danger btn-sm" title="Feedback für Zuhörer sperren">
+                                    <i class="fas fa-lock"></i> Feedback sperren
+                                </button>
+                            {% endif %}
+                        </form>
                         {% if presentation.last_error_message %}
                             <form method="post" action="{{ url_for('retry_ai_generation', id=presentation.id) }}" style="display: inline;">
                                 <button type="submit" class="btn btn-warning btn-sm">
