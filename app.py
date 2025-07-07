@@ -18,6 +18,7 @@ import threading
 import time
 import secrets
 import string
+from collections import defaultdict
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
@@ -25,9 +26,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///presentations.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Konfiguration für die Feedback-Verarbeitung
-app.config['FEEDBACK_PROCESSING_INTERVAL'] = 30  # Sekunden zwischen den Verarbeitungen
-app.config['FEEDBACK_BATCH_WINDOW'] = 30  # Sekunden, in denen Feedback gesammelt wird
-app.config['CLIENT_REFRESH_INTERVAL'] = 20  # Sekunden zwischen Client-Aktualisierungen
+app.config['FEEDBACK_PROCESSING_INTERVAL'] = 60  # Feste Zeitslots für AI-Verarbeitung (alle 60s ab Mitternacht)
+app.config['CLIENT_REFRESH_INTERVAL'] = 20  # Sekunden zwischen Client-Aktualisierungen (Frontend-Polling)
+
+# Rate-Limiting für AI-Calls (Schutz vor Missbrauch)
+# HINWEIS: Nur für manuelle API-Aufrufe, NICHT für automatische Feedback-Verarbeitung
+ai_call_limits = defaultdict(list)  # user_id -> [timestamp, timestamp, ...]
+AI_CALLS_PER_HOUR = 60  # Maximal 60 AI-Calls pro Stunde pro Benutzer (gelockert)
 
 # Registrierungspasswort
 REGISTRATION_PASSWORD = os.environ.get('REGISTRATION_PASSWORD')
@@ -172,6 +177,27 @@ def markdown_to_html(text):
     # Erst die Code-Block-Markierungen entfernen
     cleaned_text = clean_markdown_response(text)
     return Markup(markdown.markdown(cleaned_text, extensions=['tables']))
+
+# Rate-Limiting Hilfsfunktion
+def check_ai_rate_limit(user_id):
+    """Überprüft, ob der Benutzer das AI-Rate-Limit erreicht hat"""
+    global ai_call_limits
+    now = datetime.utcnow()
+    one_hour_ago = now - timedelta(hours=1)
+    
+    # Entferne alte Einträge (älter als 1 Stunde)
+    ai_call_limits[user_id] = [
+        timestamp for timestamp in ai_call_limits[user_id] 
+        if timestamp > one_hour_ago
+    ]
+    
+    # Überprüfe das Limit
+    if len(ai_call_limits[user_id]) >= AI_CALLS_PER_HOUR:
+        return False
+    
+    # Füge aktuellen Aufruf hinzu
+    ai_call_limits[user_id].append(now)
+    return True
 
 # KI-Integration
 
@@ -994,7 +1020,14 @@ def api_get_ai_content(id):
 
 
 @app.route('/api/feedbacks/<int:presentation_id>', methods=['GET'])
+@login_required
 def api_get_feedbacks(presentation_id):
+    presentation = Presentation.get_active_or_404(presentation_id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist oder Admin
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Unauthorized access to feedbacks'}), 403
+    
     feedbacks = Feedback.query.filter_by(presentation_id=presentation_id).order_by(Feedback.created_at.desc()).all()
     
     result = []
@@ -1011,7 +1044,15 @@ def api_get_feedbacks(presentation_id):
     return jsonify(result)
 
 @app.route('/api/generate_preview', methods=['POST'])
+@login_required
 def api_generate_preview():
+    # Rate-Limiting überprüfen
+    if not check_ai_rate_limit(current_user.id):
+        return jsonify({
+            'success': False,
+            'error': f'Rate-Limit erreicht. Maximal {AI_CALLS_PER_HOUR} AI-Aufrufe pro Stunde erlaubt.'
+        }), 429
+    
     data = request.json
     context = data.get('context', '')
     content = data.get('content', '')
