@@ -70,6 +70,7 @@ tests/
 start_production*.sh
 start_production*.bat
 docker-run.sh
+# Note: docker-entrypoint.sh is needed and NOT ignored
 
 # Temporary files
 *.tmp
