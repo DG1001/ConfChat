@@ -358,6 +358,16 @@ docker-compose up -d
 docker-compose logs -f presentai
 ```
 
+**Code-Updates deployen:**
+```bash
+# Bei Änderungen am Code (z.B. nach git pull)
+docker-compose down
+docker-compose up -d --build  # --build erzwingt Image-Neubau
+
+# Logs überprüfen
+docker-compose logs -f presentai
+```
+
 **Erweiterte Docker-Optionen:**
 ```bash
 # Mit docker-run.sh (mehr Kontrolle)
