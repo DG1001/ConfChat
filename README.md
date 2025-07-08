@@ -134,12 +134,33 @@ python -m waitress --host=127.0.0.1 --port=8000 --threads=4 app:app
 
 #### Docker (empfohlen für Produktion)
 ```bash
-# Mit Environment-Datei
+# 1. Environment-Datei konfigurieren
 cp .env.example .env
-# .env bearbeiten und OPENAI_API_KEY setzen
+# .env bearbeiten und mindestens OPENAI_API_KEY setzen
+
+# 2. Verzeichnis-Berechtigungen setzen (Linux/macOS)
+mkdir -p instance
+sudo chown -R 1000:1000 instance
+chmod 755 instance
+
+# 3. Container starten
 docker-compose up -d
 
-# Oder mit docker-run.sh Skript
+# 4. Logs überprüfen
+docker-compose logs -f presentai
+```
+
+**Wichtige .env-Konfiguration:**
+```env
+OPENAI_API_KEY=ihr-openai-api-key
+REGISTRATION_PASSWORD=ihr-registrierungspasswort
+SECRET_KEY=ihr-secret-key
+PORT=8080  # Externer Port (Standard: 8080)
+```
+
+**Alternative Deployment-Optionen:**
+```bash
+# Mit docker-run.sh Skript
 OPENAI_API_KEY=sk-... ./docker-run.sh --port 8080
 
 # Oder manuell
@@ -154,7 +175,7 @@ docker run -d \
 - **Entwicklung:** http://127.0.0.1:5000/
 - **Linux/macOS/WSL:** http://0.0.0.0:5000/
 - **Windows:** http://127.0.0.1:8000/
-- **Docker:** http://localhost:8080/ (oder gewählter Port)
+- **Docker:** http://localhost:8080/ (oder per PORT in .env konfigurierter Port)
 
 ## 📁 Projektstruktur
 
@@ -322,10 +343,19 @@ cd ConfChat
 
 # 2. Umgebungsvariablen setzen
 cp .env.example .env
-# .env bearbeiten und OPENAI_API_KEY setzen
+# .env bearbeiten und mindestens OPENAI_API_KEY setzen
+# Optional: PORT=8080 für anderen externen Port
 
-# 3. Starten
+# 3. Berechtigungen setzen (Linux/macOS)
+mkdir -p instance
+sudo chown -R 1000:1000 instance
+chmod 755 instance
+
+# 4. Container starten
 docker-compose up -d
+
+# 5. Logs überprüfen
+docker-compose logs -f presentai
 ```
 
 **Erweiterte Docker-Optionen:**
