@@ -1,25 +1,25 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container-fluid px-2 px-md-5 mt-3 mt-md-5">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
+        <div class="col-12 col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h2 class="mb-0">{{ presentation.title }}</h2>
                 </div>
-                <div class="card-body">
-                    <div class="mb-4">
-                        <p class="lead">{{ presentation.description }}</p>
+                <div class="card-body p-2 p-md-3">
+                    <div class="mb-3 mb-md-4">
+                        <p class="lead mb-2">{{ presentation.description }}</p>
                     </div>
                     
                     {% if presentation.live_info_visible %}
                     <!-- Live-Info Bereich -->
-                    <div class="card mb-4 border-success">
-                        <div class="card-header bg-success text-white">
-                            <h3 class="mb-0">Live-Informationen</h3>
+                    <div class="card mb-3 mb-md-4 border-success">
+                        <div class="card-header bg-success text-white py-2">
+                            <h4 class="mb-0 h5">Live-Informationen</h4>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-2 p-md-3">
                             <div id="liveInfoContainer" class="markdown-content">
                                 <!-- Live-Info wird hier geladen -->
                                 <div class="d-flex justify-content-center">
@@ -33,7 +33,7 @@
                     {% endif %}
                     
                     <div class="feedback-section">
-                        <h3>Haben Sie Fragen oder möchten weitere Informationen?</h3>
+                        <h4 class="h5">Haben Sie Fragen oder möchten weitere Informationen?</h4>
                         {% if presentation.feedback_disabled %}
                             <div class="alert alert-info">
                                 <i class="fas fa-lock"></i> 
@@ -41,15 +41,15 @@
                                 Der Präsentator hat die Feedback-Funktion temporär gesperrt.
                             </div>
                         {% else %}
-                        <form id="feedbackForm" class="mb-3">
-                            <div class="form-group mb-3">
-                                <label for="participantName" class="form-label">Ihr Name:</label>
-                                <input type="text" class="form-control" id="participantName" 
+                        <form id="feedbackForm" class="mb-2 mb-md-3">
+                            <div class="form-group mb-2 mb-md-3">
+                                <label for="participantName" class="form-label small">Ihr Name:</label>
+                                <input type="text" class="form-control form-control-sm" id="participantName" 
                                     placeholder="Geben Sie hier Ihren Namen ein..." maxlength="100">
                             </div>
                             <div class="form-group">
-                                <label for="feedbackContent" class="form-label">Ihre Nachricht:</label>
-                                <textarea class="form-control" id="feedbackContent" rows="3" 
+                                <label for="feedbackContent" class="form-label small">Ihre Nachricht:</label>
+                                <textarea class="form-control form-control-sm" id="feedbackContent" rows="3" 
                                     placeholder="Geben Sie hier Ihre Frage oder zusätzliche Informationen ein..." 
                                     maxlength="500"></textarea>
                                 <div class="d-flex justify-content-between">
@@ -57,7 +57,7 @@
                                     <small id="charCount" class="form-text text-muted">0/500</small>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary mt-2">Absenden</button>
+                            <button type="submit" class="btn btn-primary btn-sm mt-2">Absenden</button>
                         </form>
                         {% endif %}
                         <div id="feedback-success" class="alert alert-success d-none mt-3">
