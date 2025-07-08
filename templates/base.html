@@ -67,6 +67,7 @@
     </style>
 </head>
 <body>
+    {% block navigation %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">PresentAI</a>
@@ -94,6 +95,7 @@
             </div>
         </div>
     </nav>
+    {% endblock navigation %}
 
     <!-- Flash-Nachrichten -->
     {% with messages = get_flashed_messages(with_categories=true) %}
