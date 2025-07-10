@@ -137,7 +137,9 @@
                         <div class="form-group">
                             <label for="additionalInfo">Zusätzliche Informationen (z.B. Antworten auf Fragen, Updates):</label>
                             <textarea class="form-control" id="additionalInfo" name="additional_info" rows="4" 
-                                placeholder="Geben Sie hier zusätzliche Informationen ein, die in der statischen Sektion angezeigt werden sollen..."></textarea>
+                                placeholder="Geben Sie hier zusätzliche Informationen ein, die in der statischen Sektion angezeigt werden sollen..."
+                                oninput="updateCharCount()"></textarea>
+                            <small class="text-muted">Zeichen: <span id="charCount">0</span> (ca. <span id="tokenEstimate">0</span> Tokens)</small>
                         </div>
                         <button type="submit" class="btn btn-warning">
                             <i class="fas fa-plus"></i> Information hinzufügen
@@ -146,12 +148,21 @@
                     
                     {% if presentation.additional_info %}
                         <hr>
-                        <h5>Bereits hinzugefügte Informationen:</h5>
-                        <div class="card bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5>Bereits hinzugefügte Informationen:</h5>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmClearAdditionalInfo()">
+                                <i class="fas fa-trash"></i> Alle löschen
+                            </button>
+                        </div>
+                        <div class="card bg-light mt-2">
                             <div class="card-body">
                                 <pre>{{ presentation.additional_info }}</pre>
                             </div>
                         </div>
+                        
+                        <!-- Hidden form for clearing additional info -->
+                        <form id="clearAdditionalInfoForm" method="post" action="{{ url_for('clear_additional_info', id=presentation.id) }}" style="display: none;">
+                        </form>
                     {% endif %}
                 </div>
             </div>
@@ -337,6 +348,34 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(updateAiContent, 5000); // Alle 5 Sekunden
     setInterval(updateFeedbacks, 10000); // Alle 10 Sekunden
 });
+
+function confirmClearAdditionalInfo() {
+    if (confirm('Möchten Sie wirklich alle zusätzlichen Informationen löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+        document.getElementById('clearAdditionalInfoForm').submit();
+    }
+}
+
+function updateCharCount() {
+    const textarea = document.getElementById('additionalInfo');
+    const charCount = textarea.value.length;
+    const tokenEstimate = Math.ceil(charCount / 4); // Grobe Schätzung: 1 Token ≈ 4 Zeichen
+    
+    document.getElementById('charCount').textContent = charCount;
+    document.getElementById('tokenEstimate').textContent = tokenEstimate;
+    
+    // Warnung bei vielen Tokens
+    const tokenSpan = document.getElementById('tokenEstimate');
+    if (tokenEstimate > 500) {
+        tokenSpan.style.color = '#dc3545'; // Bootstrap danger color
+        tokenSpan.parentElement.innerHTML = 'Zeichen: <span id="charCount">' + charCount + '</span> (ca. <span id="tokenEstimate" style="color: #dc3545;">' + tokenEstimate + '</span> Tokens - sehr lang!)';
+    } else if (tokenEstimate > 200) {
+        tokenSpan.style.color = '#ffc107'; // Bootstrap warning color
+        tokenSpan.parentElement.innerHTML = 'Zeichen: <span id="charCount">' + charCount + '</span> (ca. <span id="tokenEstimate" style="color: #ffc107;">' + tokenEstimate + '</span> Tokens)';
+    } else {
+        tokenSpan.style.color = '#6c757d'; // Bootstrap muted color
+        tokenSpan.parentElement.innerHTML = 'Zeichen: <span id="charCount">' + charCount + '</span> (ca. <span id="tokenEstimate" style="color: #6c757d;">' + tokenEstimate + '</span> Tokens)';
+    }
+}
 </script>
 <style>
 .markdown-content h1, .markdown-content h2, .markdown-content h3, 

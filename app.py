@@ -18,6 +18,7 @@ import threading
 import time
 import secrets
 import string
+from difflib import SequenceMatcher
 from collections import defaultdict
 
 app = Flask(__name__)
@@ -211,6 +212,37 @@ def check_ai_rate_limit(user_id):
     ai_call_limits[user_id].append(now)
     return True
 
+# Hilfsfunktionen für zusätzliche Informationen
+
+def check_duplicate_additional_info(existing_info, new_info, similarity_threshold=0.8):
+    """
+    Prüft, ob die neue Information bereits in den bestehenden zusätzlichen Informationen enthalten ist.
+    Gibt (is_duplicate, similarity_score) zurück.
+    """
+    if not existing_info or not new_info:
+        return False, 0.0
+    
+    # Normalisiere die Texte für besseren Vergleich
+    new_info_normalized = new_info.strip().lower()
+    
+    # Extrahiere den reinen Inhalt aus den bestehenden Informationen (ohne Zeitstempel)
+    info_sections = existing_info.split('--- Hinzugefügt am')
+    
+    for section in info_sections:
+        if section.strip():
+            # Entferne Zeitstempel und extrahiere nur den Inhalt
+            content_lines = section.split('\n')[1:] if '---' in section else [section]
+            content = '\n'.join(content_lines).strip().lower()
+            
+            if content:
+                # Berechne Ähnlichkeit
+                similarity = SequenceMatcher(None, new_info_normalized, content).ratio()
+                
+                if similarity >= similarity_threshold:
+                    return True, similarity
+    
+    return False, 0.0
+
 # KI-Integration
 
 def generate_static_info_content(title, description, context, content, additional_info=None):
@@ -266,7 +298,7 @@ def generate_static_info_content(title, description, context, content, additiona
                     {"role": "system", "content": "Du bist ein Experte für die Erstellung von informativen und gut strukturierten Präsentationsinhalten im Markdown-Format. Erstelle klare, sachliche Inhalte basierend auf den gegebenen Informationen."},
                     {"role": "user", "content": prompt}
                 ],
-                "max_tokens": 1500
+                "max_tokens": 5000
             }
         )
         response_data = response.json()
@@ -592,6 +624,13 @@ def add_additional_info(id):
     
     additional_info = request.form.get('additional_info')
     if additional_info and additional_info.strip():
+        # Prüfe auf Duplikate
+        is_duplicate, similarity = check_duplicate_additional_info(presentation.additional_info, additional_info.strip())
+        
+        if is_duplicate:
+            flash(f'Diese Information ist bereits vorhanden (Ähnlichkeit: {similarity:.0%}). Die Information wurde nicht erneut hinzugefügt.', 'warning')
+            return redirect(url_for('view_presentation', id=id))
+        
         # Neue Information zu existierenden hinzufügen
         if presentation.additional_info:
             presentation.additional_info += f"\n\n--- Hinzugefügt am {datetime.utcnow().strftime('%d.%m.%Y %H:%M')} ---\n{additional_info.strip()}"
@@ -615,6 +654,36 @@ def add_additional_info(id):
         flash('Zusätzliche Information wurde hinzugefügt und der statische Bereich wurde aktualisiert.', 'success')
     else:
         flash('Bitte geben Sie eine gültige Information ein.', 'error')
+    
+    return redirect(url_for('view_presentation', id=id))
+
+@app.route('/presentation/<int:id>/clear_additional_info', methods=['POST'])
+@login_required
+def clear_additional_info(id):
+    presentation = Presentation.get_active_or_404(id)
+    
+    # Überprüfen, ob der Benutzer der Ersteller ist
+    if presentation.user_id != current_user.id and not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Alle zusätzlichen Informationen löschen
+    presentation.additional_info = None
+    
+    # Statischen Inhalt neu generieren (ohne zusätzliche Infos)
+    if presentation.context and presentation.content:
+        static_content = generate_static_info_content(
+            title=presentation.title,
+            description=presentation.description,
+            context=presentation.context,
+            content=presentation.content,
+            additional_info=None
+        )
+        if static_content is not None:
+            presentation.static_info_content = static_content
+            presentation.last_updated = datetime.utcnow()
+    
+    db.session.commit()
+    flash('Alle zusätzlichen Informationen wurden gelöscht und der statische Bereich wurde aktualisiert.', 'success')
     
     return redirect(url_for('view_presentation', id=id))
 
